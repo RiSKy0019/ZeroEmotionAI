@@ -1,7 +1,6 @@
 # ZeroEmotionAI — Trading Journal & Analytics
 
-Plan your trades, review your performance, and course‑correct your mistakes.
-A fast, private, self‑hosted trading journal — no install, no build step, no backend.
+Plan, review and course‑correct your trading. A fast, private journaling + analytics app built with **React + Tailwind**, with **no build step** — just open it.
 
 All data is stored locally in your browser (`localStorage`). Nothing is uploaded anywhere.
 
@@ -9,16 +8,26 @@ All data is stored locally in your browser (`localStorage`). Nothing is uploaded
 
 ## Features
 
-- **Dashboard** — Net P&L, win rate, profit factor, expectancy, equity curve, daily P&L calendar, max drawdown and streaks.
-- **Trades** — Full trade log with automatic P&L and R‑multiple, mistake/emotion tagging, execution rating, search, sort and filtering. **CSV import** included.
-- **Planning** — Pre‑trade plans with bias, entry/stop/target, auto reward‑to‑risk, a pre‑trade checklist, and a one‑click "log as trade".
-- **Playbooks** — Define your strategies and their rules, and see per‑strategy stats (net P&L, win rate, profit factor).
-- **Reports** — P&L by day of week, hour, symbol and playbook; win rate by setup; long vs short.
-- **Journal & Review** — A discipline score, a breakdown of what each mistake costs you, and a daily pre‑market / review / lesson log.
+- **Dashboard** — Net P&L, win rate, profit factor, expectancy, equity curve, win/loss split, a daily **P&L calendar**, max drawdown, streaks and recent trades.
+- **Trades** — Full trade log with automatic **P&L** and **R‑multiple**, tags, mistake tagging, emotion + execution rating, **screenshots**, search, sort and filtering.
+- **Manual + CSV import** — Add trades by hand, or import a CSV (auto‑detected columns, live preview, downloadable template).
+- **Reports** — A library of analytics across five tabs (Time, Instruments, Strategy, Behavior, Risk & Quality): P&L and win rate by day, hour, month, symbol, playbook, tag, emotion and rating; long vs short; R‑multiple distribution; mistake cost.
+- **Playbooks** — Define your strategies and rules, and see per‑strategy stats (net P&L, win rate, profit factor, trade count).
+- **Journal & Review** — A discipline score, “what your mistakes cost you” breakdown, and a daily pre‑market / review / lesson log.
 - **Light & dark themes** — Toggle in the top bar; your choice is remembered.
-- **Backup** — Export/import your whole journal as JSON.
+- **Backup** — Export/import your whole journal as JSON; reset to fresh sample data anytime.
 
-The app ships with realistic sample data so you can explore immediately. Use **Reset / reseed** to start clean (or to reload the sample set).
+The app ships with realistic sample data so you can explore immediately.
+
+---
+
+## Tech & approach
+
+- **React 18** and **Tailwind CSS**, both loaded from a CDN — there is **no build step** and nothing to install.
+- **Chart.js** for charts (loads from CDN; the app still works offline and just hides charts).
+- Components are written with `React.createElement` (via a small `h` helper) so the app runs straight from static files.
+
+> Note: this uses the Tailwind Play CDN for zero‑setup convenience. To “graduate” to a production build later, the same components can be moved into a Vite + React + Tailwind project.
 
 ---
 
@@ -31,16 +40,13 @@ The app ships with realistic sample data so you can explore immediately. Use **R
 4. After a minute it's live at: `https://<your-username>.github.io/ZeroEmotionAI/`
 
 ### Option B — Locally
-Download the repo and open `index.html` in your browser. That's it.
-(Charts load Chart.js from a CDN; if you're fully offline the app still works and just hides the charts.)
+Download the repo and open `index.html` in your browser. (An internet connection is needed the first time so the CDN libraries can load.)
 
 ---
 
 ## CSV import
 
-Open **Trades → ⤓ Import CSV**, then upload a file or paste rows. The first row must be headers; columns are auto‑detected by name (case‑insensitive). A **Download template** button is provided in the dialog.
-
-Recognized columns:
+Open **Trades → ⤓ Import CSV**, then upload a file or paste rows. The first row must be headers; columns are auto‑detected by name (case‑insensitive). A **Download template** button is in the dialog.
 
 | Field | Accepted headers (examples) |
 |-------|------------------------------|
@@ -53,18 +59,17 @@ Recognized columns:
 | Exit | `exit`, `exit price`, `avg exit`, `sell price` |
 | Fees | `fees`, `commission` |
 | Setup | `setup`, `playbook`, `strategy` |
-| Mistakes | `mistakes`, `tags` (separate multiple with `;` or `|`) |
+| Tags | `tags` (separate with `;` or `|`) |
+| Mistakes | `mistakes` (separate with `;` or `|`) |
 | Risk | `risk`, `risk amount` (enables R‑multiple) |
 | Notes | `notes`, `comment` |
 
-Required to import a row: **symbol**, **entry**, **exit**, **quantity** and a valid **date**. Invalid rows are skipped and counted in the preview.
-
-Example:
+Required per row: **symbol**, **entry**, **exit**, **quantity**, and a valid **date**. Invalid rows are skipped and counted in the preview.
 
 ```csv
-Date,Time,Symbol,Side,Quantity,Entry,Exit,Fees,Setup,Mistakes,Risk,Notes
-2026-05-20,09:34,NQ,Long,2,18520.25,18560.50,4.40,Opening Range Breakout,,300,Clean break with volume
-2026-05-20,10:12,AAPL,Short,150,224.80,223.10,1.50,Mean Reversion Fade,Chased entry,250,Faded into resistance
+Date,Time,Symbol,Side,Quantity,Entry,Exit,Fees,Setup,Tags,Mistakes,Risk,Notes
+2026-05-20,09:34,NQ,Long,2,18520.25,18560.50,4.40,Opening Range Breakout,Trend day,,300,Clean break
+2026-05-20,10:12,AAPL,Short,150,224.80,223.10,1.50,Mean Reversion Fade,Reversal,Chased entry,250,Faded resistance
 ```
 
 ---
@@ -75,28 +80,29 @@ Date,Time,Symbol,Side,Quantity,Entry,Exit,Fees,Setup,Mistakes,Risk,Notes
 - **Short:** `(entry − exit) × quantity − fees`
 - **R‑multiple:** `net P&L ÷ risk amount` (only when a risk amount is provided)
 
-For futures, enter the per‑contract price and a quantity/multiplier that reflects the contract's point value (e.g. risk amount in dollars).
-
 ---
 
 ## Project structure
 
 ```
-index.html              App shell + script/style includes
-assets/css/styles.css   Theme variables (light + dark) and all styling
-assets/js/store.js      Data layer, localStorage persistence, trade math
-assets/js/seed.js       Sample data generator
-assets/js/util.js       Formatting, DOM helpers, CSV parsing
-assets/js/charts.js     Chart.js wrappers (theme-aware, graceful fallback)
-assets/js/ui.js         Modal, toast, confirm, reusable UI bits
-assets/js/views.js      All screens and forms
-assets/js/app.js        Bootstrap, routing, top-bar wiring, theme toggle
+index.html                  Loads React, Tailwind, Chart.js (CDN) + app scripts
+assets/css/app.css          Small custom layer (scrollbars, base)
+assets/js/base.js           h() helper, theme controller, event bus
+assets/js/format.js         Money / %, dates, download helpers
+assets/js/store.js          localStorage store + React hook + all trade math
+assets/js/seed.js           Sample data generator
+assets/js/charts.js         Chart.js React wrappers (theme-aware)
+assets/js/components.js     Card, Button, Modal, Badges, Field, TagEditor, Toasts
+assets/js/view.dashboard.js Dashboard (stats, equity, calendar)
+assets/js/view.trades.js    Trade log, add/edit form, CSV import
+assets/js/view.reports.js   Report library (5 tabs)
+assets/js/view.playbooks.js Strategies + per-strategy stats
+assets/js/view.journal.js   Discipline score, mistake cost, daily journal
+assets/js/app.js            Shell, routing, top bar, modal manager, mount
 ```
-
-Plain vanilla JavaScript (no framework) + [Chart.js](https://www.chartjs.org/).
 
 ---
 
 ## Disclaimer
 
-This is a personal journaling and analytics tool, not financial advice. Trading involves substantial risk.
+A personal journaling and analytics tool, not financial advice. Trading involves substantial risk.
