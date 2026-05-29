@@ -9,6 +9,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="assets/css/styles.css" />
+  <script>
+    /* Apply saved theme before paint to avoid a flash of the wrong theme */
+    (function () {
+      try {
+        var t = localStorage.getItem('edgeJournal.theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'dark'); }
+    })();
+  </script>
 </head>
 <body>
   <!-- App shell -->
@@ -63,6 +72,7 @@
             </select>
           </div>
           <button class="btn btn--primary" id="addTradeBtn">+ Add Trade</button>
+          <button class="icon-btn" id="themeToggle" title="Toggle light / dark theme" aria-label="Toggle theme">🌙</button>
         </div>
       </header>
 

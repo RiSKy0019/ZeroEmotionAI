@@ -715,7 +715,7 @@
     Charts.bars(c2.canvas, { labels: hour.map(function (g) { return U.hourLabel(g.key); }), data: hour.map(function (g) { return g.pnl; }) });
     Charts.bars(c3.canvas, { labels: sym.map(function (g) { return g.key; }), data: sym.map(function (g) { return g.pnl; }), horizontal: true });
     Charts.bars(c4.canvas, { labels: setup.map(function (g) { return g.key; }), data: setup.map(function (g) { return g.pnl; }), horizontal: true });
-    Charts.bars(c5.canvas, { labels: setup.map(function (g) { return g.key; }), data: setup.map(function (g) { return g.count ? Math.round((g.wins / (g.wins + g.losses || 1)) * 100) : 0; }), horizontal: true, fmt: 'pct', singleColor: '#7c5cff' });
+    Charts.bars(c5.canvas, { labels: setup.map(function (g) { return g.key; }), data: setup.map(function (g) { return g.count ? Math.round((g.wins / (g.wins + g.losses || 1)) * 100) : 0; }), horizontal: true, fmt: 'pct', singleColor: 'violet' });
     var longs = trades.filter(function (t) { return t.side !== 'short'; });
     var shorts = trades.filter(function (t) { return t.side === 'short'; });
     Charts.bars(c6.canvas, { labels: ['Long', 'Short'], data: [C.computeStats(longs).netPnl, C.computeStats(shorts).netPnl] });

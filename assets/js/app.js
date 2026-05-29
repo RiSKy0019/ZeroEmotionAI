@@ -53,6 +53,25 @@
   function openSidebar() { document.getElementById('sidebar').classList.add('open'); }
   function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); }
 
+  /* ---------- theme ---------- */
+  var THEME_KEY = 'edgeJournal.theme';
+  function getTheme() {
+    try { return localStorage.getItem(THEME_KEY) || 'dark'; } catch (e) { return 'dark'; }
+  }
+  function applyTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    try { localStorage.setItem(THEME_KEY, t); } catch (e) {}
+    var btn = document.getElementById('themeToggle');
+    if (btn) {
+      btn.textContent = t === 'light' ? '☀️' : '🌙';
+      btn.title = t === 'light' ? 'Switch to dark theme' : 'Switch to light theme';
+    }
+  }
+  function toggleTheme() {
+    applyTheme(getTheme() === 'light' ? 'dark' : 'light');
+    render(); // repaint charts with the new theme colours
+  }
+
   function bind() {
     // nav
     document.getElementById('nav').addEventListener('click', function (e) {
@@ -66,6 +85,7 @@
     document.getElementById('accountSelect').addEventListener('change', function (e) { current.accountId = e.target.value; render(); });
     document.getElementById('rangeSelect').addEventListener('change', function (e) { current.range = e.target.value; render(); });
     document.getElementById('addTradeBtn').addEventListener('click', function () { Views.openTradeForm(); });
+    document.getElementById('themeToggle').addEventListener('click', toggleTheme);
 
     // mobile menu
     document.getElementById('menuToggle').addEventListener('click', function () {
@@ -121,6 +141,7 @@
     Store.init(global.seedState);
     populateAccounts();
     bind();
+    applyTheme(getTheme()); // sync the toggle icon with the already-applied theme
     var r = location.hash.replace('#', '');
     if (TITLES[r]) current.route = r;
     render();

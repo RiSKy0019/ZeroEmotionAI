@@ -4,6 +4,7 @@
    ============================================================ */
 
 :root {
+  /* ----- Dark theme (default) ----- */
   --bg: #0c0c12;
   --bg-2: #11111a;
   --panel: #16161f;
@@ -28,11 +29,63 @@
   --red-soft: rgba(234, 57, 67, 0.14);
   --amber: #f0a32a;
 
+  --sidebar-bg: linear-gradient(180deg, #12121c, #0e0e16);
+  --topbar-bg: rgba(12, 12, 18, 0.85);
+  --scroll: #2a2a3a;
+  --scroll-hover: #353548;
+
+  /* Chart colours (read by charts.js) */
+  --chart-grid: rgba(255, 255, 255, 0.06);
+  --chart-tick: #8a8aa0;
+  --chart-tip-bg: #1c1c28;
+  --chart-tip-text: #f3f3f7;
+  --chart-tip-body: #cfcfe0;
+
   --radius: 14px;
   --radius-sm: 10px;
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
   --sidebar-w: 248px;
   --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* ----- Light theme ----- */
+html[data-theme="light"] {
+  --bg: #f4f5fb;
+  --bg-2: #ffffff;
+  --panel: #ffffff;
+  --panel-2: #f2f3f9;
+  --panel-hover: #eceef6;
+  --border: #e4e6f0;
+  --border-2: #d6d9e6;
+
+  --text: #181a26;
+  --text-dim: #555a70;
+  --text-faint: #8a8ea2;
+
+  --violet: #6b4cf0;
+  --violet-2: #6b4cf0;
+  --violet-soft: rgba(107, 76, 240, 0.10);
+  --pink: #d24bb8;
+  --blue: #2f8fe6;
+
+  --green: #0ea968;
+  --green-soft: rgba(14, 169, 104, 0.12);
+  --red: #d92d39;
+  --red-soft: rgba(217, 45, 57, 0.10);
+  --amber: #c9821a;
+
+  --sidebar-bg: linear-gradient(180deg, #ffffff, #f6f7fc);
+  --topbar-bg: rgba(244, 245, 251, 0.88);
+  --scroll: #cdd0de;
+  --scroll-hover: #b9bdcf;
+
+  --chart-grid: rgba(20, 22, 40, 0.07);
+  --chart-tick: #6a6f85;
+  --chart-tip-bg: #ffffff;
+  --chart-tip-text: #181a26;
+  --chart-tip-body: #555a70;
+
+  --shadow: 0 10px 30px rgba(31, 38, 76, 0.12);
 }
 
 * { box-sizing: border-box; }
@@ -49,8 +102,8 @@ a { color: inherit; text-decoration: none; cursor: pointer; }
 button { font-family: inherit; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 8px; }
-::-webkit-scrollbar-thumb:hover { background: #353548; }
+::-webkit-scrollbar-thumb { background: var(--scroll); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: var(--scroll-hover); }
 
 /* ---------- Layout ---------- */
 .app { display: flex; min-height: 100vh; }
@@ -58,7 +111,7 @@ button { font-family: inherit; }
 .sidebar {
   width: var(--sidebar-w);
   flex-shrink: 0;
-  background: linear-gradient(180deg, #12121c, #0e0e16);
+  background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -100,7 +153,7 @@ button { font-family: inherit; }
   position: sticky; top: 0; z-index: 30;
   display: flex; align-items: center; gap: 16px;
   padding: 14px 24px;
-  background: rgba(12,12,18,.85);
+  background: var(--topbar-bg);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
 }
