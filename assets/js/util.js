@@ -90,9 +90,60 @@
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
   }
 
+  /* ---------- CSV ---------- */
+  // RFC-ish CSV parser: handles quoted fields, escaped quotes ("") and CRLF.
+  function parseCSV(text) {
+    var rows = [], row = [], field = '', i = 0, inQuotes = false;
+    text = String(text).replace(/^\uFEFF/, ''); // strip BOM
+    while (i < text.length) {
+      var ch = text[i];
+      if (inQuotes) {
+        if (ch === '"') {
+          if (text[i + 1] === '"') { field += '"'; i += 2; continue; }
+          inQuotes = false; i++; continue;
+        }
+        field += ch; i++; continue;
+      }
+      if (ch === '"') { inQuotes = true; i++; continue; }
+      if (ch === ',') { row.push(field); field = ''; i++; continue; }
+      if (ch === '\r') { i++; continue; }
+      if (ch === '\n') { row.push(field); rows.push(row); row = []; field = ''; i++; continue; }
+      field += ch; i++;
+    }
+    if (field.length || row.length) { row.push(field); rows.push(row); }
+    // drop fully-empty trailing rows
+    return rows.filter(function (r) { return r.some(function (c) { return String(c).trim() !== ''; }); });
+  }
+
+  // Normalise common date formats to YYYY-MM-DD; returns '' if unparseable.
+  function normalizeDate(raw) {
+    if (!raw) return '';
+    var s = String(raw).trim();
+    var m;
+    if ((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) {
+      return m[1] + '-' + pad2(m[2]) + '-' + pad2(m[3]);
+    }
+    if ((m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/))) {
+      var mm = m[1], dd = m[2], yy = m[3];
+      if (yy.length === 2) yy = '20' + yy;
+      return yy + '-' + pad2(mm) + '-' + pad2(dd); // assumes MM/DD/YYYY
+    }
+    var d = new Date(s);
+    if (!isNaN(d)) return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+    return '';
+  }
+  function pad2(n) { n = String(n); return n.length < 2 ? '0' + n : n; }
+
+  function normalizeTime(raw) {
+    if (!raw) return '';
+    var m = String(raw).trim().match(/(\d{1,2}):(\d{2})/);
+    return m ? pad2(m[1]) + ':' + m[2] : '';
+  }
+
   global.U = {
     money: money, moneyShort: moneyShort, pct: pct, num: num, signClass: signClass,
     fmtDate: fmtDate, fmtDateShort: fmtDateShort, dowName: dowName, esc: esc, el: el,
-    todayISO: todayISO, hourLabel: hourLabel, download: download
+    todayISO: todayISO, hourLabel: hourLabel, download: download,
+    parseCSV: parseCSV, normalizeDate: normalizeDate, normalizeTime: normalizeTime
   };
 })(window);
