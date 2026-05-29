@@ -1,152 +1,118 @@
 /* ============================================================
-   charts.js — Chart.js wrappers with graceful fallback (global `Charts`)
-   Colours are read from CSS variables so charts follow the active theme.
+   charts.js — React wrappers around Chart.js (window.Charts)
+   Theme-aware; degrades to a message if the CDN is blocked.
    ============================================================ */
-(function (global) {
+(function () {
   'use strict';
-
+  var h = window.h;
   var FONT = 'Inter, sans-serif';
 
-  function cssVar(name, fallbackVal) {
-    try {
-      var v = getComputedStyle(document.documentElement).getPropertyValue(name);
-      return (v && v.trim()) || fallbackVal;
-    } catch (e) { return fallbackVal; }
-  }
-  function theme() {
+  function palette(theme) {
+    var dark = theme !== 'light';
     return {
-      grid: cssVar('--chart-grid', 'rgba(255,255,255,0.06)'),
-      tick: cssVar('--chart-tick', '#8a8aa0'),
-      tipBg: cssVar('--chart-tip-bg', '#1c1c28'),
-      tipText: cssVar('--chart-tip-text', '#f3f3f7'),
-      tipBody: cssVar('--chart-tip-body', '#cfcfe0'),
-      panel: cssVar('--panel', '#16161f'),
-      green: cssVar('--green', '#16c784'),
-      red: cssVar('--red', '#ea3943'),
-      violet: cssVar('--violet', '#7c5cff')
+      grid: dark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.07)',
+      tick: dark ? '#8a8aa0' : '#64748b',
+      tipBg: dark ? '#1a1a26' : '#ffffff',
+      tipText: dark ? '#f3f3f7' : '#0f172a',
+      tipBody: dark ? '#cfcfe0' : '#475569',
+      border: dark ? '#2f2f40' : '#e2e8f0',
+      panel: dark ? '#15151f' : '#ffffff',
+      green: '#16c784', red: '#ea3943', brand: '#7c5cff'
     };
   }
-
-  function available() { return !!global.Chart; }
-
-  function fallback(canvas, msg) {
-    var box = canvas.parentNode;
-    if (!box) return;
-    canvas.style.display = 'none';
-    var note = document.createElement('div');
-    note.style.cssText = 'height:100%;display:grid;place-items:center;color:var(--text-faint);font-size:13px;text-align:center;padding:20px;';
-    note.textContent = msg || 'Charts need an internet connection (Chart.js CDN). The rest of the app works offline.';
-    box.appendChild(note);
+  function tip(p) {
+    return { backgroundColor: p.tipBg, borderColor: p.border, borderWidth: 1, titleColor: p.tipText,
+      bodyColor: p.tipBody, padding: 10, cornerRadius: 8, titleFont: { family: FONT }, bodyFont: { family: FONT } };
   }
-
-  function killExisting(canvas) {
-    if (global.Chart && global.Chart.getChart) {
-      var ex = global.Chart.getChart(canvas);
-      if (ex) ex.destroy();
-    }
-  }
-
-  function tooltipCfg(t, extraCallbacks) {
-    return Object.assign({
-      backgroundColor: t.tipBg, borderColor: cssVar('--border-2', '#2f2f40'), borderWidth: 1,
-      titleColor: t.tipText, bodyColor: t.tipBody, padding: 10, cornerRadius: 8,
-      titleFont: { family: FONT }, bodyFont: { family: FONT }
-    }, extraCallbacks || {});
-  }
-
-  function baseOpts(t, extra) {
-    var o = {
-      responsive: true, maintainAspectRatio: false,
-      interaction: { intersect: false, mode: 'index' },
-      plugins: { legend: { display: false }, tooltip: tooltipCfg(t) },
-      scales: {
-        x: { grid: { color: t.grid, drawTicks: false }, ticks: { color: t.tick, font: { family: FONT, size: 11 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, border: { display: false } },
-        y: { grid: { color: t.grid, drawTicks: false }, ticks: { color: t.tick, font: { family: FONT, size: 11 } }, border: { display: false } }
-      }
-    };
-    return Object.assign(o, extra || {});
-  }
-
-  function hexToRgba(hex, a) {
-    var m = String(hex).trim().match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+  function rgba(hex, a) {
+    var m = String(hex).match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
     if (!m) return 'rgba(124,92,255,' + a + ')';
     return 'rgba(' + parseInt(m[1], 16) + ',' + parseInt(m[2], 16) + ',' + parseInt(m[3], 16) + ',' + a + ')';
   }
 
-  function line(canvas, cfg) {
-    if (!available()) return fallback(canvas);
-    killExisting(canvas);
-    var t = theme();
-    var color = cfg.color || t.violet;
-    var ctx = canvas.getContext('2d');
-    var grad = ctx.createLinearGradient(0, 0, 0, canvas.height || 280);
-    grad.addColorStop(0, hexToRgba(color, 0.32));
-    grad.addColorStop(1, hexToRgba(color, 0.01));
-    return new global.Chart(canvas, {
-      type: 'line',
-      data: {
-        labels: cfg.labels,
-        datasets: [{
-          data: cfg.data, borderColor: color, backgroundColor: grad,
-          fill: true, tension: 0.25, borderWidth: 2,
-          pointRadius: 0, pointHoverRadius: 4, pointHoverBackgroundColor: color
-        }]
-      },
-      options: baseOpts(t, {
-        plugins: {
-          legend: { display: false },
-          tooltip: tooltipCfg(t, { callbacks: { label: function (c) { return '  $' + Number(c.parsed.y).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); } } })
-        }
-      })
-    });
+  function Fallback(props) {
+    return h('div', { className: 'grid place-items-center text-center text-slate-400 text-sm p-6',
+      style: { height: (props.height || 260) + 'px' } },
+      'Charts need an internet connection (Chart.js CDN). Everything else works offline.');
   }
 
-  function bars(canvas, cfg) {
-    if (!available()) return fallback(canvas);
-    killExisting(canvas);
-    var t = theme();
-    var colors = cfg.data.map(function (v) {
-      if (cfg.singleColor) return cfg.singleColor === 'violet' ? t.violet : cfg.singleColor;
-      return v >= 0 ? t.green : t.red;
-    });
-    return new global.Chart(canvas, {
-      type: 'bar',
-      data: { labels: cfg.labels, datasets: [{ data: cfg.data, backgroundColor: colors, borderRadius: 6, borderSkipped: false, maxBarThickness: 46 }] },
-      options: baseOpts(t, {
-        indexAxis: cfg.horizontal ? 'y' : 'x',
-        plugins: {
-          legend: { display: false },
-          tooltip: tooltipCfg(t, {
-            callbacks: {
-              label: function (c) {
-                var v = cfg.horizontal ? c.parsed.x : c.parsed.y;
-                if (cfg.fmt === 'pct') return '  ' + Number(v).toFixed(1) + '%';
-                if (cfg.fmt === 'plain') return '  ' + Number(v).toLocaleString('en-US');
-                return '  $' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-              }
-            }
-          })
-        }
-      })
-    });
+  function useChart(build, deps, height) {
+    var ref = React.useRef(null);
+    React.useEffect(function () {
+      if (!window.Chart || !ref.current) return;
+      var inst;
+      try { inst = build(ref.current); } catch (e) { console.error('chart build failed', e); }
+      return function () { if (inst) inst.destroy(); };
+    }, deps);
+    return ref;
   }
 
-  function doughnut(canvas, cfg) {
-    if (!available()) return fallback(canvas);
-    killExisting(canvas);
-    var t = theme();
-    return new global.Chart(canvas, {
-      type: 'doughnut',
-      data: { labels: cfg.labels, datasets: [{ data: cfg.data, backgroundColor: cfg.colors || [t.green, t.red, '#7a7a8a'], borderColor: t.panel, borderWidth: 3 }] },
-      options: {
-        responsive: true, maintainAspectRatio: false, cutout: '70%',
-        plugins: {
-          legend: { display: true, position: 'bottom', labels: { color: t.tipBody, font: { family: FONT, size: 12 }, padding: 14, usePointStyle: true } },
-          tooltip: tooltipCfg(t)
-        }
-      }
-    });
+  function baseScales(p, horizontal) {
+    return {
+      x: { grid: { color: p.grid, drawTicks: false }, ticks: { color: p.tick, font: { family: FONT, size: 11 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, border: { display: false } },
+      y: { grid: { color: p.grid, drawTicks: false }, ticks: { color: p.tick, font: { family: FONT, size: 11 } }, border: { display: false } }
+    };
   }
 
-  global.Charts = { line: line, bars: bars, doughnut: doughnut, available: available };
-})(window);
+  function Line(props) {
+    var theme = window.useTheme();
+    var height = props.height || 280;
+    if (!window.Chart) return h(Fallback, { height: height });
+    var p = palette(theme);
+    var color = props.color || p.brand;
+    var ref = useChart(function (canvas) {
+      var ctx = canvas.getContext('2d');
+      var grad = ctx.createLinearGradient(0, 0, 0, height);
+      grad.addColorStop(0, rgba(color, 0.30)); grad.addColorStop(1, rgba(color, 0.01));
+      return new window.Chart(canvas, {
+        type: 'line',
+        data: { labels: props.labels, datasets: [{ data: props.data, borderColor: color, backgroundColor: grad, fill: true, tension: 0.25, borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, pointHoverBackgroundColor: color }] },
+        options: { responsive: true, maintainAspectRatio: false, interaction: { intersect: false, mode: 'index' },
+          plugins: { legend: { display: false }, tooltip: Object.assign(tip(p), { callbacks: { label: function (c) { return '  $' + Number(c.parsed.y).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); } } }) },
+          scales: baseScales(p) }
+      });
+    }, [JSON.stringify(props.labels), JSON.stringify(props.data), theme, color], height);
+    return h('div', { className: 'chart-host', style: { height: height + 'px' } }, h('canvas', { ref: ref }));
+  }
+
+  function Bars(props) {
+    var theme = window.useTheme();
+    var height = props.height || 260;
+    if (!window.Chart) return h(Fallback, { height: height });
+    var p = palette(theme);
+    var ref = useChart(function (canvas) {
+      var colors = props.data.map(function (v) { return props.color ? (props.color === 'brand' ? p.brand : props.color) : (v >= 0 ? p.green : p.red); });
+      return new window.Chart(canvas, {
+        type: 'bar',
+        data: { labels: props.labels, datasets: [{ data: props.data, backgroundColor: colors, borderRadius: 6, borderSkipped: false, maxBarThickness: 44 }] },
+        options: { responsive: true, maintainAspectRatio: false, indexAxis: props.horizontal ? 'y' : 'x',
+          plugins: { legend: { display: false }, tooltip: Object.assign(tip(p), { callbacks: { label: function (c) {
+            var v = props.horizontal ? c.parsed.x : c.parsed.y;
+            if (props.fmt === 'pct') return '  ' + Number(v).toFixed(1) + '%';
+            if (props.fmt === 'plain') return '  ' + Number(v).toLocaleString('en-US');
+            return '  $' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          } } }) },
+          scales: baseScales(p, props.horizontal) }
+      });
+    }, [JSON.stringify(props.labels), JSON.stringify(props.data), theme, props.horizontal, props.fmt, props.color], height);
+    return h('div', { className: 'chart-host', style: { height: height + 'px' } }, h('canvas', { ref: ref }));
+  }
+
+  function Doughnut(props) {
+    var theme = window.useTheme();
+    var height = props.height || 240;
+    if (!window.Chart) return h(Fallback, { height: height });
+    var p = palette(theme);
+    var ref = useChart(function (canvas) {
+      return new window.Chart(canvas, {
+        type: 'doughnut',
+        data: { labels: props.labels, datasets: [{ data: props.data, backgroundColor: props.colors || [p.green, p.red, '#7a7a8a'], borderColor: p.panel, borderWidth: 3 }] },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '70%',
+          plugins: { legend: { display: true, position: 'bottom', labels: { color: p.tipBody, font: { family: FONT, size: 12 }, padding: 14, usePointStyle: true } }, tooltip: tip(p) } }
+      });
+    }, [JSON.stringify(props.labels), JSON.stringify(props.data), theme], height);
+    return h('div', { className: 'chart-host', style: { height: height + 'px' } }, h('canvas', { ref: ref }));
+  }
+
+  window.Charts = { Line: Line, Bars: Bars, Doughnut: Doughnut };
+})();

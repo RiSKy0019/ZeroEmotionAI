@@ -1,100 +1,79 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Edge Journal — Trading Journal & Analytics</title>
-  <meta name="description" content="Plan your trades, review your performance, and course-correct your mistakes. A self-hosted trading journal inspired by TradeZella." />
+  <title>ZeroEmotionAI — Trading Journal & Analytics</title>
+  <meta name="description" content="Plan, review and course-correct your trading. Journaling, analytics, reports, playbooks and CSV import." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="assets/css/styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+  <!-- Set theme before paint to avoid flash -->
   <script>
-    /* Apply saved theme before paint to avoid a flash of the wrong theme */
     (function () {
       try {
-        var t = localStorage.getItem('edgeJournal.theme') || 'dark';
-        document.documentElement.setAttribute('data-theme', t);
-      } catch (e) { document.documentElement.setAttribute('data-theme', 'dark'); }
+        var t = localStorage.getItem('zea.theme') || 'dark';
+        document.documentElement.classList.toggle('dark', t !== 'light');
+      } catch (e) {}
     })();
   </script>
+
+  <!-- Tailwind (Play CDN — no build step) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+          colors: {
+            ink: {
+              950: '#0a0a10', 900: '#0d0d15', 850: '#11111a',
+              800: '#15151f', 750: '#1a1a26', 700: '#1d1d2b',
+              600: '#262633', 500: '#2f2f40', 400: '#3a3a4d'
+            },
+            brand: { DEFAULT: '#7c5cff', 300: '#b3a0ff', 400: '#9b7bff', 500: '#7c5cff', 600: '#6b4cf0', 700: '#5a3ddb' },
+            accentpink: '#e15cc8',
+            profit: { DEFAULT: '#16c784', soft: 'rgba(22,199,132,0.14)' },
+            loss: { DEFAULT: '#ea3943', soft: 'rgba(234,57,67,0.14)' },
+            amber: { DEFAULT: '#f0a32a' }
+          },
+          boxShadow: {
+            glow: '0 8px 30px rgba(124,92,255,0.35)',
+            card: '0 10px 30px rgba(0,0,0,0.25)'
+          },
+          keyframes: {
+            'fade-in': { '0%': { opacity: 0, transform: 'translateY(6px)' }, '100%': { opacity: 1, transform: 'none' } },
+            'scale-in': { '0%': { opacity: 0, transform: 'scale(.97)' }, '100%': { opacity: 1, transform: 'scale(1)' } }
+          },
+          animation: { 'fade-in': 'fade-in .25s ease', 'scale-in': 'scale-in .18s ease' }
+        }
+      }
+    };
+  </script>
+  <link rel="stylesheet" href="assets/css/app.css" />
 </head>
-<body>
-  <!-- App shell -->
-  <div id="app" class="app">
-    <!-- Sidebar -->
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar__brand">
-        <div class="brand-mark">⚡</div>
-        <div class="brand-text">
-          <span class="brand-name">Edge Journal</span>
-          <span class="brand-tag">Plan · Review · Improve</span>
-        </div>
-      </div>
+<body class="bg-slate-50 text-slate-900 dark:bg-ink-950 dark:text-slate-100 font-sans antialiased">
+  <div id="root"></div>
 
-      <nav class="nav" id="nav">
-        <a class="nav__item" data-route="dashboard"><span class="nav__icon">▦</span> Dashboard</a>
-        <a class="nav__item" data-route="trades"><span class="nav__icon">▤</span> Trades</a>
-        <a class="nav__item" data-route="planning"><span class="nav__icon">◎</span> Planning</a>
-        <a class="nav__item" data-route="playbooks"><span class="nav__icon">📘</span> Playbooks</a>
-        <a class="nav__item" data-route="reports"><span class="nav__icon">📈</span> Reports</a>
-        <a class="nav__item" data-route="journal"><span class="nav__icon">✎</span> Journal &amp; Review</a>
-      </nav>
-
-      <div class="sidebar__footer">
-        <button class="btn btn--ghost btn--block" id="exportBtn" title="Download a JSON backup of your data">⭳ Export data</button>
-        <label class="btn btn--ghost btn--block" title="Restore data from a JSON backup">
-          ⭱ Import data
-          <input type="file" id="importInput" accept="application/json" hidden />
-        </label>
-        <button class="btn btn--danger-ghost btn--block" id="resetBtn" title="Wipe everything and reload sample data">⟲ Reset / reseed</button>
-      </div>
-    </aside>
-
-    <!-- Main -->
-    <div class="main">
-      <header class="topbar">
-        <button class="icon-btn topbar__menu" id="menuToggle" aria-label="Toggle menu">☰</button>
-        <div class="topbar__title" id="pageTitle">Dashboard</div>
-
-        <div class="topbar__controls">
-          <div class="select-wrap">
-            <label class="select-label">Account</label>
-            <select id="accountSelect" class="select"></select>
-          </div>
-          <div class="select-wrap">
-            <label class="select-label">Range</label>
-            <select id="rangeSelect" class="select">
-              <option value="all">All time</option>
-              <option value="ytd">Year to date</option>
-              <option value="30">Last 30 days</option>
-              <option value="7">Last 7 days</option>
-            </select>
-          </div>
-          <button class="btn btn--primary" id="addTradeBtn">+ Add Trade</button>
-          <button class="icon-btn" id="themeToggle" title="Toggle light / dark theme" aria-label="Toggle theme">🌙</button>
-        </div>
-      </header>
-
-      <main class="content" id="view"><!-- views render here --></main>
-    </div>
-  </div>
-
-  <!-- Modal root -->
-  <div class="modal-root" id="modalRoot" aria-hidden="true"></div>
-  <!-- Toast root -->
-  <div class="toast-root" id="toastRoot"></div>
-
-  <!-- Chart.js (loads from CDN in your browser; app degrades gracefully if offline) -->
+  <!-- Libraries (load in the browser; the app degrades gracefully if a CDN is blocked) -->
+  <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
-  <!-- App scripts (classic scripts so it runs from file:// without a server) -->
+  <!-- App (classic scripts; each file is an IIFE attaching to window namespaces) -->
+  <script src="assets/js/base.js"></script>
+  <script src="assets/js/format.js"></script>
   <script src="assets/js/store.js"></script>
   <script src="assets/js/seed.js"></script>
-  <script src="assets/js/util.js"></script>
   <script src="assets/js/charts.js"></script>
-  <script src="assets/js/ui.js"></script>
-  <script src="assets/js/views.js"></script>
+  <script src="assets/js/components.js"></script>
+  <script src="assets/js/view.dashboard.js"></script>
+  <script src="assets/js/view.trades.js"></script>
+  <script src="assets/js/view.reports.js"></script>
+  <script src="assets/js/view.playbooks.js"></script>
+  <script src="assets/js/view.journal.js"></script>
   <script src="assets/js/app.js"></script>
 </body>
 </html>

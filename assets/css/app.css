@@ -1,0 +1,30 @@
+/* Small custom layer on top of Tailwind (Play CDN handles the utilities). */
+
+html, body { margin: 0; padding: 0; min-height: 100%; }
+body { -webkit-font-smoothing: antialiased; }
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #c9ccd9; border-radius: 8px; }
+.dark ::-webkit-scrollbar-thumb { background: #2a2a3a; }
+::-webkit-scrollbar-thumb:hover { background: #b3b7c7; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #3a3a4d; }
+
+/* Hide number input spinners for a cleaner look */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; }
+
+/* Remove default date/time icon tint mismatch in dark mode */
+.dark input[type="date"]::-webkit-calendar-picker-indicator,
+.dark input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(0.7); }
+
+/* Chart canvases fill their box */
+.chart-host { position: relative; width: 100%; }
+
+/* Thin scrollbar utility for tab rows */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Tailwind Play CDN prints a console note in production; harmless. */
