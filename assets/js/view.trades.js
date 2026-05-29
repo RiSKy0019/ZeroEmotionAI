@@ -52,7 +52,8 @@
 
     return h('div', { className: 'space-y-4 animate-fade-in' },
       h(UI.SectionHead, { title: 'Trade Log', sub: 'Every fill with P&L, R-multiple, tags, mistakes and screenshots.',
-        right: [h(UI.Button, { key: 'csv', variant: 'ghost', onClick: props.openCsv }, '⤓ Import CSV'),
+        right: [h(UI.Button, { key: 'tv', variant: 'ghost', onClick: props.openTradingView }, '⇪ TradingView'),
+                h(UI.Button, { key: 'csv', variant: 'ghost', onClick: props.openCsv }, '⤓ Import CSV'),
                 h(UI.Button, { key: 'add', variant: 'primary', onClick: function () { props.openTradeForm(); } }, '+ Add Trade')] }),
       h('div', { className: 'flex flex-wrap gap-2.5 items-center' },
         h(UI.Input, { className: 'max-w-xs', placeholder: '🔎 Search symbol, setup, tag, notes…', value: q, onChange: function (e) { search[1](e.target.value); } }),
@@ -122,15 +123,15 @@
   function TradeForm(props) {
     var state = Store.getState();
     var isEdit = !!props.trade;
-    var init = props.trade || { accountId: (state.accounts[0] || {}).id, symbol: '', date: Fmt.todayISO(), time: '09:30', side: 'long', quantity: '', entry: '', exit: '', fees: 0, riskAmount: '', setup: '', emotion: '', rating: '', tags: [], mistakes: [], screenshots: [], notes: '' };
+    var init = props.trade || { accountId: (state.accounts[0] || {}).id, symbol: '', date: Fmt.todayISO(), time: '09:30', side: 'long', quantity: '', entry: '', exit: '', fees: 0, multiplier: '', riskAmount: '', setup: '', emotion: '', rating: '', tags: [], mistakes: [], screenshots: [], notes: '' };
     var fs = useState(Object.assign({}, init)); var form = fs[0], setForm = fs[1];
     function set(k, v) { setForm(function (cur) { var n = Object.assign({}, cur); n[k] = v; return n; }); }
 
     var preview = useMemo(function () {
       var entry = parseFloat(form.entry), exit = parseFloat(form.exit), qty = parseFloat(form.quantity);
       if (![entry, exit, qty].every(isFinite)) return null;
-      return C.pnlOf({ side: form.side, entry: entry, exit: exit, quantity: qty, fees: parseFloat(form.fees) || 0 });
-    }, [form.entry, form.exit, form.quantity, form.side, form.fees]);
+      return C.pnlOf({ side: form.side, entry: entry, exit: exit, quantity: qty, fees: parseFloat(form.fees) || 0, multiplier: parseFloat(form.multiplier) || 1 });
+    }, [form.entry, form.exit, form.quantity, form.side, form.fees, form.multiplier]);
 
     function onFiles(e) {
       var files = Array.prototype.slice.call(e.target.files || []);
@@ -148,6 +149,7 @@
       var obj = {
         accountId: form.accountId, symbol: symbol, date: form.date, time: form.time, side: form.side,
         quantity: qty, entry: entry, exit: exit, fees: parseFloat(form.fees) || 0,
+        multiplier: form.multiplier === '' || form.multiplier == null ? 1 : (parseFloat(form.multiplier) || 1),
         riskAmount: form.riskAmount === '' || form.riskAmount == null ? null : parseFloat(form.riskAmount),
         setup: form.setup, emotion: form.emotion, rating: form.rating ? parseInt(form.rating, 10) : null,
         tags: form.tags || [], mistakes: form.mistakes || [], screenshots: form.screenshots || [], notes: String(form.notes || '').trim()
@@ -175,6 +177,7 @@
         h(UI.Field, { label: 'Entry price' }, h(UI.Input, { type: 'number', step: 'any', value: form.entry, onChange: function (e) { set('entry', e.target.value); } })),
         h(UI.Field, { label: 'Exit price' }, h(UI.Input, { type: 'number', step: 'any', value: form.exit, onChange: function (e) { set('exit', e.target.value); } })),
         h(UI.Field, { label: 'Fees / commission' }, h(UI.Input, { type: 'number', step: 'any', value: form.fees, onChange: function (e) { set('fees', e.target.value); } })),
+        h(UI.Field, { label: 'Contract multiplier', hint: '— 1 stocks · 50 ES · 20 NQ' }, h(UI.Input, { type: 'number', step: 'any', placeholder: '1', value: form.multiplier == null ? '' : form.multiplier, onChange: function (e) { set('multiplier', e.target.value); } })),
         h(UI.Field, { label: 'Risk amount ($)', hint: '— for R-multiple' }, h(UI.Input, { type: 'number', step: 'any', value: form.riskAmount, onChange: function (e) { set('riskAmount', e.target.value); } })),
         h(UI.Field, { label: 'Playbook / Setup' }, h(UI.Select, { value: form.setup, onChange: function (e) { set('setup', e.target.value); } },
           h('option', { value: '' }, '— none —'), state.playbooks.map(function (pb) { return h('option', { key: pb.id, value: pb.name }, pb.name); }))),
@@ -215,6 +218,7 @@
     setup: ['setup', 'playbook', 'strategy', 'system'],
     mistakes: ['mistakes', 'mistake', 'errors'], tags: ['tags', 'tag', 'labels'],
     riskAmount: ['risk', 'riskamount', 'risk amount', 'risk $', '$risk', 'risk$'],
+    multiplier: ['multiplier', 'point value', 'pointvalue', 'contract size', 'big point value', 'tick value'],
     notes: ['notes', 'note', 'comment', 'comments', 'description']
   };
   function parseCSV(text) {
@@ -258,11 +262,13 @@
       if (!sym || !isFinite(entry) || !isFinite(exit) || !isFinite(qty) || !date) { invalid++; continue; }
       var fees = csvNum(g('fees')); if (!isFinite(fees)) fees = 0;
       var risk = csvNum(g('riskAmount'));
+      var mult = csvNum(g('multiplier'));
       var split = function (v) { v = String(v || '').trim(); return v ? v.split(/[;|]/).map(function (x) { return x.trim(); }).filter(Boolean) : []; };
       var sideRaw = String(g('side') || '').trim().toLowerCase();
       out.push({ accountId: accountId, date: date, time: time || '09:30', symbol: sym,
         side: (sideRaw === 's' || sideRaw === 'sell' || sideRaw.indexOf('short') >= 0) ? 'short' : 'long',
         quantity: qty, entry: entry, exit: exit, fees: fees, riskAmount: isFinite(risk) ? risk : null,
+        multiplier: isFinite(mult) && mult > 0 ? mult : 1,
         setup: String(g('setup') || '').trim(), tags: split(g('tags')), mistakes: split(g('mistakes')),
         emotion: '', rating: null, screenshots: [], notes: String(g('notes') || '').trim() });
     }
@@ -324,8 +330,87 @@
     );
   }
 
+  /* ===================== TradingView import ===================== */
+  var SAMPLE_TV = 'Trade #,Type,Date/Time,Signal,Price USD,Contracts,Profit USD,Cumulative profit USD,Run-up USD,Drawdown USD\n' +
+    '1,Entry long,2026-05-01 09:30,Buy,18500,2,,,,\n' +
+    '1,Exit long,2026-05-01 11:00,Close,18560,2,2400,2400,2600,-300\n' +
+    '2,Entry short,2026-05-02 10:15,Sell,18620,1,,,,\n' +
+    '2,Exit short,2026-05-02 13:45,Close,18580,1,800,3200,900,-150';
+
+  function ImportTradingView(props) {
+    var state = Store.getState();
+    var defAcc = (props.ctx && props.ctx.accountId && props.ctx.accountId !== 'all') ? props.ctx.accountId : (state.accounts[0] || {}).id;
+    var acc = useState(defAcc); var symbol = useState(''); var mult = useState(''); var text = useState('');
+
+    var parsed = useMemo(function () {
+      return text[0].trim() ? window.TVImport.parse(text[0], { symbol: symbol[0], accountId: acc[0], defaultMultiplier: parseFloat(mult[0]) || 1 })
+        : { recognized: false, trades: [], invalid: 0, mode: null };
+    }, [text[0], symbol[0], acc[0], mult[0]]);
+
+    function onFile(e) {
+      var f = e.target.files && e.target.files[0]; if (!f) return;
+      if (!symbol[0]) { var g = window.TVImport.guessSymbol(f.name); if (g) symbol[1](g); }
+      var rd = new FileReader(); rd.onload = function () { text[1](rd.result); }; rd.readAsText(f);
+    }
+    function doImport() {
+      if (!parsed.recognized || !parsed.trades.length || !symbol[0].trim()) return;
+      parsed.trades.forEach(function (t) { Store.add('trades', t); });
+      window.toast('Imported ' + parsed.trades.length + ' trade' + (parsed.trades.length > 1 ? 's' : '') + ' from TradingView', 'ok');
+      props.onClose();
+    }
+    var n = parsed.trades.length;
+    var noSymbol = !symbol[0].trim();
+    var footer = [
+      h(UI.Button, { key: 'c', variant: 'ghost', onClick: props.onClose }, 'Cancel'),
+      h(UI.Button, { key: 'i', variant: 'primary', disabled: !parsed.recognized || n === 0 || noSymbol, onClick: doImport }, n ? ('Import ' + n + ' trade' + (n > 1 ? 's' : '')) : 'Import')
+    ];
+
+    return h(UI.Modal, { title: 'Import from TradingView', wide: true, onClose: props.onClose, footer: footer },
+      h('div', { className: 'rounded-xl border border-slate-200 dark:border-ink-600 bg-slate-50 dark:bg-ink-900 p-3 mb-3.5 text-sm text-slate-500 dark:text-slate-400' },
+        h('strong', { className: 'text-slate-700 dark:text-slate-200' }, 'How to export from TradingView: '),
+        'open the ', h('em', null, 'Strategy Tester'), ' or ', h('em', null, 'Paper Trading'), ' panel → ',
+        h('em', null, 'List of Trades'), ' → the ', h('strong', null, 'Export'), ' (download) icon. Then upload or paste the CSV below.',
+        h('div', { className: 'mt-1.5 text-xs' }, 'TradingView exports two rows per trade (entry + exit) and does not include the symbol, so set it here. Futures point value is detected automatically from the P&L column.')),
+      h('div', { className: 'grid grid-cols-1 sm:grid-cols-3 gap-3.5' },
+        h(UI.Field, { label: 'Account' }, h(UI.Select, { value: acc[0], onChange: function (e) { acc[1](e.target.value); } },
+          state.accounts.map(function (a) { return h('option', { key: a.id, value: a.id }, a.name); }))),
+        h(UI.Field, { label: 'Symbol', hint: '— required' }, h(UI.Input, { value: symbol[0], placeholder: 'e.g. NQ1!, AAPL', onChange: function (e) { symbol[1](e.target.value); } })),
+        h(UI.Field, { label: 'Multiplier fallback', hint: '— if no P&L col' }, h(UI.Input, { type: 'number', step: 'any', placeholder: '1', value: mult[0], onChange: function (e) { mult[1](e.target.value); } }))),
+      h('div', { className: 'grid grid-cols-1 sm:grid-cols-2 gap-3.5 mt-3.5' },
+        h(UI.Field, { label: 'TradingView CSV file' }, h('input', { type: 'file', accept: '.csv,text/csv', onChange: onFile, className: 'text-sm text-slate-500 py-2' }))),
+      h('div', { className: 'mt-3.5' }, h(UI.Field, { label: '…or paste the exported rows', full: true }, h(UI.Textarea, { value: text[0], placeholder: 'Trade #,Type,Date/Time,Signal,Price,Contracts,Profit …', className: 'font-mono text-xs min-h-[130px]', onChange: function (e) { text[1](e.target.value); } }))),
+      h('div', { className: 'flex gap-3 mt-2' },
+        h('button', { className: 'text-brand-400 text-xs font-semibold hover:underline', onClick: function () { text[1](SAMPLE_TV); if (!symbol[0]) symbol[1]('NQ1!'); } }, 'Load sample'),
+        h('button', { className: 'text-brand-400 text-xs font-semibold hover:underline', onClick: function () { Fmt.download('tradingview-sample.csv', SAMPLE_TV, 'text/csv'); } }, '⭳ Download sample')),
+      text[0].trim() ? h('div', { className: 'mt-4' },
+        !parsed.recognized
+          ? h('div', { className: 'rounded-xl border border-dashed border-loss/40 bg-loss/5 text-sm p-4' }, '⚠️ This does not look like a TradingView "List of Trades" export. Expected a header row with Type and Price columns (or Entry/Exit price columns).')
+          : noSymbol
+            ? h('div', { className: 'rounded-xl border border-dashed border-amber/50 bg-amber/5 text-sm p-4' }, 'ℹ️ Enter the symbol above to enable import — TradingView exports don\'t include it.')
+            : h('div', null,
+                h('div', { className: 'flex gap-3 mb-3 flex-wrap items-center' },
+                  h(UI.Pill, null, h('strong', { className: 'text-profit' }, n), ' trades paired'),
+                  parsed.invalid ? h(UI.Pill, null, h('strong', { className: 'text-loss' }, parsed.invalid), ' skipped') : null,
+                  h(UI.Pill, null, 'mode: ' + parsed.mode)),
+                n ? h('div', { className: 'overflow-x-auto' }, h('table', { className: 'w-full text-sm min-w-[600px]' },
+                  h('thead', null, h('tr', { className: 'text-left text-[11px] uppercase tracking-wide text-slate-400' },
+                    ['Date', 'Symbol', 'Side', 'Qty', 'Entry', 'Exit', 'Mult', 'P&L'].map(function (c) { return h('th', { key: c, className: 'py-1.5 pr-3 font-semibold' }, c); }))),
+                  h('tbody', null, parsed.trades.slice(0, 8).map(function (t, i) {
+                    var p = C.pnlOf(t);
+                    return h('tr', { key: i, className: 'border-t border-slate-100 dark:border-ink-700' },
+                      h('td', { className: 'py-1.5 pr-3' }, t.date), h('td', { className: 'pr-3 font-semibold' }, t.symbol),
+                      h('td', { className: 'pr-3' }, h(UI.SideBadge, { side: t.side })), h('td', { className: 'pr-3' }, Fmt.num(t.quantity)),
+                      h('td', { className: 'pr-3' }, Fmt.num(t.entry, 2)), h('td', { className: 'pr-3' }, Fmt.num(t.exit, 2)),
+                      h('td', { className: 'pr-3 text-slate-400' }, '×' + t.multiplier),
+                      h('td', { className: window.cx('pr-3 font-semibold', Fmt.signColor(p)) }, Fmt.money(p, { plus: true })));
+                  })))) : null,
+                n > 8 ? h('p', { className: 'text-xs text-slate-400 mt-2' }, '+ ' + (n - 8) + ' more…') : null)) : null
+    );
+  }
+
   window.Views = window.Views || {};
   window.Views.Trades = Trades;
   window.Views.TradeForm = TradeForm;
   window.Views.ImportCsv = ImportCsv;
+  window.Views.ImportTradingView = ImportTradingView;
 })();

@@ -73,6 +73,7 @@
         id: uid('trd'), accountId: rnd() < 0.7 ? accMain : accProp,
         date: iso(d), time: pad(Math.floor(between(9, 15))) + ':' + pad(pick([0, 5, 12, 18, 27, 33, 41, 52])),
         symbol: sym, side: side, entry: entry, exit: exit, quantity: qty, fees: fees,
+        multiplier: fut ? ptVal : 1,
         setup: setup, mistakes: mistakes, tags: tags, emotion: pick(emotions),
         rating: Math.max(1, Math.min(5, Math.round(win ? between(3, 5) : between(1, 3)))),
         riskAmount: riskAmount, screenshots: [],

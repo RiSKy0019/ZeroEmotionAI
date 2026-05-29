@@ -92,7 +92,8 @@
   function r2(n) { return Math.round((n + Number.EPSILON) * 100) / 100; }
   function pnlOf(t) {
     var dir = t.side === 'short' ? -1 : 1;
-    return r2((t.exit - t.entry) * t.quantity * dir - (t.fees || 0));
+    var mult = Number(t.multiplier) || 1; // contract point value; 1 for stocks/crypto/forex
+    return r2((t.exit - t.entry) * t.quantity * mult * dir - (t.fees || 0));
   }
   function rOf(t) { var risk = Number(t.riskAmount) || 0; return risk > 0 ? r2(pnlOf(t) / risk) : null; }
   function resultOf(t) { var p = pnlOf(t); return p > 0 ? 'win' : p < 0 ? 'loss' : 'be'; }

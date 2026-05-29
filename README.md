@@ -11,6 +11,7 @@ All data is stored locally in your browser (`localStorage`). Nothing is uploaded
 - **Dashboard** — Net P&L, win rate, profit factor, expectancy, equity curve, win/loss split, a daily **P&L calendar**, max drawdown, streaks and recent trades.
 - **Trades** — Full trade log with automatic **P&L** and **R‑multiple**, tags, mistake tagging, emotion + execution rating, **screenshots**, search, sort and filtering.
 - **Manual + CSV import** — Add trades by hand, or import a CSV (auto‑detected columns, live preview, downloadable template).
+- **Import from TradingView** — Bring in trades from a TradingView **List of Trades** CSV export (Strategy Tester / Paper Trading panel → Export). Entry and exit legs are paired into round‑trip trades and futures point value is detected automatically.
 - **Reports** — A library of analytics across five tabs (Time, Instruments, Strategy, Behavior, Risk & Quality): P&L and win rate by day, hour, month, symbol, playbook, tag, emotion and rating; long vs short; R‑multiple distribution; mistake cost.
 - **Playbooks** — Define your strategies and rules, and see per‑strategy stats (net P&L, win rate, profit factor, trade count).
 - **Journal & Review** — A discipline score, “what your mistakes cost you” breakdown, and a daily pre‑market / review / lesson log.
@@ -76,9 +77,16 @@ Date,Time,Symbol,Side,Quantity,Entry,Exit,Fees,Setup,Tags,Mistakes,Risk,Notes
 
 ## How P&L is calculated
 
-- **Long:** `(exit − entry) × quantity − fees`
-- **Short:** `(entry − exit) × quantity − fees`
+- **Long:** `(exit − entry) × quantity × multiplier − fees`
+- **Short:** `(entry − exit) × quantity × multiplier − fees`
+- **Multiplier** is the contract point value — `1` for stocks/crypto/forex, `50` for ES, `20` for NQ, etc. Leave it blank (= 1) for non‑futures.
 - **R‑multiple:** `net P&L ÷ risk amount` (only when a risk amount is provided)
+
+### Import from TradingView
+
+TradingView has no public account API, so this imports the CSV it produces. In TradingView, open the **Strategy Tester** or **Paper Trading** panel → **List of Trades** → the **Export** (download) icon. Then in the app go to **Trades → ⇪ TradingView**, set the **Symbol** (TradingView exports don't include it), and upload or paste the CSV.
+
+The importer pairs TradingView's two‑rows‑per‑trade format (an Entry leg + an Exit leg) into single round‑trip trades, and derives the futures point value automatically from the exported P&L column so the numbers match TradingView.
 
 ---
 
@@ -92,6 +100,7 @@ assets/js/format.js         Money / %, dates, download helpers
 assets/js/store.js          localStorage store + React hook + all trade math
 assets/js/seed.js           Sample data generator
 assets/js/charts.js         Chart.js React wrappers (theme-aware)
+assets/js/tvimport.js       TradingView "List of Trades" CSV parser
 assets/js/components.js     Card, Button, Modal, Badges, Field, TagEditor, Toasts
 assets/js/view.dashboard.js Dashboard (stats, equity, calendar)
 assets/js/view.trades.js    Trade log, add/edit form, CSV import

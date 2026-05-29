@@ -32,9 +32,10 @@
     var ctx = { accountId: accS[0], range: rangeS[0] };
     function openTradeForm(trade) { modalS[1]({ type: 'trade', trade: trade || null }); }
     function openCsv() { modalS[1]({ type: 'csv', trade: null }); }
+    function openTradingView() { modalS[1]({ type: 'tv', trade: null }); }
     function closeModal() { modalS[1]({ type: null, trade: null }); }
 
-    var viewProps = { state: state, ctx: ctx, go: go, onAddTrade: function () { openTradeForm(); }, onEditTrade: openTradeForm, openTradeForm: openTradeForm, openCsv: openCsv };
+    var viewProps = { state: state, ctx: ctx, go: go, onAddTrade: function () { openTradeForm(); }, onEditTrade: openTradeForm, openTradeForm: openTradeForm, openCsv: openCsv, openTradingView: openTradingView };
     var View = window.Views[cap(route)] || window.Views.Dashboard;
 
     return h('div', { className: 'flex min-h-screen' },
@@ -51,6 +52,7 @@
       // modals
       modal.type === 'trade' ? h(window.Views.TradeForm, { trade: modal.trade, onClose: closeModal }) : null,
       modal.type === 'csv' ? h(window.Views.ImportCsv, { ctx: ctx, onClose: closeModal }) : null,
+      modal.type === 'tv' ? h(window.Views.ImportTradingView, { ctx: ctx, onClose: closeModal }) : null,
       h(UI.ToastHost, null)
     );
   }
