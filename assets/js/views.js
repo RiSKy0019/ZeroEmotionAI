@@ -221,7 +221,10 @@
 
   function renderTrades(mount, ctx) {
     var head = el('div', { class: 'section-head', html: '<div><h2>Trade Log</h2><p class="section-sub">Every fill, with P&L, R-multiple, setup and mistakes.</p></div>' });
-    head.appendChild(el('button', { class: 'btn btn--primary', text: '+ Add Trade', onclick: function () { openTradeForm(); } }));
+    var headBtns = el('div', { class: 'flex gap-8' });
+    headBtns.appendChild(el('button', { class: 'btn btn--ghost', text: '⤓ Import CSV', onclick: function () { openImportCsv(ctx); } }));
+    headBtns.appendChild(el('button', { class: 'btn btn--primary', text: '+ Add Trade', onclick: function () { openTradeForm(); } }));
+    head.appendChild(headBtns);
     mount.appendChild(head);
 
     var toolbar = el('div', { class: 'toolbar' });
@@ -284,6 +287,182 @@
   function deleteTrade(t) {
     UI.confirm({ title: 'Delete trade?', message: t.symbol + ' on ' + U.fmtDate(t.date) + ' — this cannot be undone.', danger: true, okText: 'Delete',
       onConfirm: function () { Store.remove('trades', t.id); UI.toast('Trade deleted', 'ok'); rerender(); } });
+  }
+
+  /* ---------- CSV import ---------- */
+  var CSV_FIELDS = {
+    date: ['date', 'open date', 'opened', 'entry date', 'date/time', 'datetime', 'time opened', 'trade date'],
+    time: ['time', 'entry time', 'open time'],
+    symbol: ['symbol', 'ticker', 'instrument', 'market', 'contract', 'asset'],
+    side: ['side', 'direction', 'type', 'b/s', 'buy/sell', 'position', 'long/short'],
+    quantity: ['qty', 'quantity', 'size', 'shares', 'contracts', 'volume', 'units'],
+    entry: ['entry', 'entry price', 'entryprice', 'open price', 'avg entry', 'buy price', 'price in', 'open', 'avgentry'],
+    exit: ['exit', 'exit price', 'exitprice', 'close price', 'avg exit', 'sell price', 'price out', 'close', 'avgexit'],
+    fees: ['fees', 'fee', 'commission', 'commissions', 'comm', 'cost'],
+    setup: ['setup', 'playbook', 'strategy', 'system'],
+    mistakes: ['mistakes', 'mistake', 'errors', 'error', 'tags'],
+    riskAmount: ['risk', 'riskamount', 'risk amount', 'risk $', '$risk', 'risk$'],
+    notes: ['notes', 'note', 'comment', 'comments', 'description']
+  };
+
+  function buildHeaderIndex(headerRow) {
+    var idx = {};
+    headerRow.forEach(function (h, i) {
+      var norm = String(h).trim().toLowerCase();
+      Object.keys(CSV_FIELDS).forEach(function (field) {
+        if (idx[field] !== undefined) return;
+        if (CSV_FIELDS[field].indexOf(norm) >= 0) idx[field] = i;
+      });
+    });
+    return idx;
+  }
+
+  function normalizeSide(raw) {
+    var v = String(raw || '').trim().toLowerCase();
+    if (v === 's' || v === 'sell' || v.indexOf('short') >= 0) return 'short';
+    return 'long';
+  }
+  function csvNum(raw) {
+    if (raw == null) return NaN;
+    var s = String(raw).replace(/[$,\s]/g, '');
+    // handle parenthesised negatives e.g. (123.45)
+    if (/^\(.*\)$/.test(s)) s = '-' + s.replace(/[()]/g, '');
+    return parseFloat(s);
+  }
+
+  // returns { trades:[], invalid:int, headers:{}, recognized:bool }
+  function mapCsv(text, accountId) {
+    var rows = U.parseCSV(text);
+    if (!rows.length) return { trades: [], invalid: 0, headers: {}, recognized: false };
+    var idx = buildHeaderIndex(rows[0]);
+    var recognized = (idx.symbol !== undefined) && (idx.entry !== undefined) && (idx.exit !== undefined);
+    if (!recognized) return { trades: [], invalid: 0, headers: idx, recognized: false };
+    var out = [], invalid = 0;
+    for (var r = 1; r < rows.length; r++) {
+      var row = rows[r];
+      var get = function (f) { return idx[f] !== undefined ? row[idx[f]] : ''; };
+      var sym = String(get('symbol') || '').trim().toUpperCase();
+      var entry = csvNum(get('entry')), exit = csvNum(get('exit')), qty = csvNum(get('quantity'));
+      var dateField = get('date');
+      var date = U.normalizeDate(dateField);
+      var time = U.normalizeTime(get('time')) || U.normalizeTime(dateField);
+      if (!sym || !isFinite(entry) || !isFinite(exit) || !isFinite(qty) || !date) { invalid++; continue; }
+      var fees = csvNum(get('fees')); if (!isFinite(fees)) fees = 0;
+      var risk = csvNum(get('riskAmount'));
+      var mistakesRaw = String(get('mistakes') || '').trim();
+      out.push({
+        accountId: accountId,
+        date: date,
+        time: time || '09:30',
+        symbol: sym,
+        side: normalizeSide(get('side')),
+        quantity: qty, entry: entry, exit: exit, fees: fees,
+        riskAmount: isFinite(risk) ? risk : null,
+        setup: String(get('setup') || '').trim(),
+        mistakes: mistakesRaw ? mistakesRaw.split(/[;|]/).map(function (x) { return x.trim(); }).filter(Boolean) : [],
+        emotion: '', rating: null,
+        notes: String(get('notes') || '').trim()
+      });
+    }
+    return { trades: out, invalid: invalid, headers: idx, recognized: true };
+  }
+
+  var SAMPLE_CSV = 'Date,Time,Symbol,Side,Quantity,Entry,Exit,Fees,Setup,Mistakes,Risk,Notes\n' +
+    '2026-05-20,09:34,NQ,Long,2,18520.25,18560.50,4.40,Opening Range Breakout,,300,Clean break with volume\n' +
+    '2026-05-20,10:12,AAPL,Short,150,224.80,223.10,1.50,Mean Reversion Fade,Chased entry,250,Faded into resistance\n' +
+    '05/21/2026,11:05,ES,Long,1,5305.00,5298.25,2.20,Trend Pullback,Moved stop;Exited early,200,Did not respect the plan';
+
+  function openImportCsv(ctx) {
+    var st = Store.getState();
+    var defaultAcc = (ctx && ctx.accountId && ctx.accountId !== 'all') ? ctx.accountId : (st.accounts[0] && st.accounts[0].id);
+    var accOpts = st.accounts.map(function (a) { return '<option value="' + a.id + '"' + (a.id === defaultAcc ? ' selected' : '') + '>' + U.esc(a.name) + '</option>'; }).join('');
+
+    var form = el('div');
+    form.appendChild(el('div', { html:
+      '<p class="section-sub" style="margin:0 0 12px">Upload or paste a CSV. Columns are auto-detected by header name ' +
+      '(date, symbol, side, quantity, entry, exit, fees, setup, mistakes, risk, notes). ' +
+      'P&L and R-multiple are calculated for you.</p>' }));
+
+    form.appendChild(el('div', { class: 'form-grid', html:
+      '<div class="field"><label>Import into account</label><select id="csv_acc">' + accOpts + '</select></div>' +
+      '<div class="field"><label>CSV file</label><input id="csv_file" type="file" accept=".csv,text/csv"></div>'
+    }));
+
+    var ta = el('textarea', { id: 'csv_text', placeholder: '…or paste CSV rows here (first row = headers)', style: 'min-height:130px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px' });
+    var taField = el('div', { class: 'field field--full', style: 'margin-top:14px' });
+    taField.appendChild(el('label', { text: 'Paste CSV' }));
+    taField.appendChild(ta);
+    form.appendChild(taField);
+
+    var sampleRow = el('div', { class: 'flex gap-8', style: 'margin-top:6px;flex-wrap:wrap' });
+    sampleRow.appendChild(el('button', { type: 'button', class: 'link-btn', text: 'Load sample', onclick: function () { ta.value = SAMPLE_CSV; refresh(); } }));
+    sampleRow.appendChild(el('button', { type: 'button', class: 'link-btn', text: '⭳ Download template', onclick: function () { U.download('zeroemotionai-import-template.csv', SAMPLE_CSV); } }));
+    form.appendChild(sampleRow);
+
+    var preview = el('div', { class: 'mt-16' });
+    form.appendChild(preview);
+
+    var parsed = { trades: [], invalid: 0, recognized: false };
+    function refresh() {
+      var text = ta.value.trim();
+      preview.innerHTML = '';
+      if (!text) { importBtn.disabled = true; importBtn.style.opacity = '.5'; return; }
+      parsed = mapCsv(text, form.querySelector('#csv_acc').value);
+      if (!parsed.recognized) {
+        preview.appendChild(el('div', { class: 'empty', style: 'padding:18px', html: '⚠️ Could not detect the required columns. Make sure the first row has headers including at least <strong>symbol</strong>, <strong>entry</strong> and <strong>exit</strong>.' }));
+        importBtn.disabled = true; importBtn.style.opacity = '.5';
+        return;
+      }
+      var n = parsed.trades.length;
+      importBtn.disabled = n === 0; importBtn.style.opacity = n === 0 ? '.5' : '1';
+      importBtn.textContent = n ? ('Import ' + n + ' trade' + (n > 1 ? 's' : '')) : 'Nothing to import';
+
+      var summary = el('div', { class: 'flex gap-12', style: 'margin-bottom:10px;flex-wrap:wrap' });
+      summary.appendChild(el('span', { class: 'pill', html: '<strong class="pos">' + n + '</strong> valid' }));
+      if (parsed.invalid) summary.appendChild(el('span', { class: 'pill', html: '<strong class="neg">' + parsed.invalid + '</strong> skipped' }));
+      preview.appendChild(summary);
+
+      if (n) {
+        var sample = parsed.trades.slice(0, 5);
+        var tbl = el('table', { class: 'tbl', style: 'min-width:auto' });
+        tbl.innerHTML = '<thead><tr><th>Date</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Exit</th><th>P&L</th></tr></thead>';
+        var tb = el('tbody');
+        sample.forEach(function (t) {
+          var p = C.pnlOf(t);
+          tb.appendChild(el('tr', { html:
+            '<td>' + U.esc(t.date) + '</td><td><strong>' + U.esc(t.symbol) + '</strong></td><td>' + UI.sideBadge(t.side) +
+            '</td><td class="num">' + U.num(t.quantity) + '</td><td class="num">' + U.num(t.entry, 2) + '</td><td class="num">' + U.num(t.exit, 2) +
+            '</td><td class="num ' + U.signClass(p) + '">' + U.money(p, { showPlus: true }) + '</td>' }));
+        });
+        tbl.appendChild(tb);
+        preview.appendChild(tbl);
+        if (n > 5) preview.appendChild(el('p', { class: 'faint', style: 'font-size:12px;margin-top:8px', text: '+ ' + (n - 5) + ' more…' }));
+      }
+    }
+
+    ta.addEventListener('input', refresh);
+
+    var importBtn = el('button', { class: 'btn btn--primary', text: 'Import', onclick: function () {
+      if (!parsed.recognized || !parsed.trades.length) return;
+      var acc = form.querySelector('#csv_acc').value;
+      parsed.trades.forEach(function (t) { t.accountId = acc; Store.add('trades', t); });
+      UI.toast('Imported ' + parsed.trades.length + ' trade' + (parsed.trades.length > 1 ? 's' : ''), 'ok');
+      m.close(); rerender();
+    } });
+
+    form.querySelector('#csv_file').addEventListener('change', function (e) {
+      var file = e.target.files && e.target.files[0]; if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () { ta.value = reader.result; refresh(); };
+      reader.readAsText(file);
+    });
+    form.querySelector('#csv_acc').addEventListener('change', refresh);
+
+    var m = UI.modal({
+      title: 'Import Trades from CSV', wide: true, body: form,
+      footer: [ el('button', { class: 'btn btn--ghost', text: 'Cancel', onclick: function () { m.close(); } }), importBtn ]
+    });
+    refresh();
   }
 
   /* ---------- Trade form ---------- */

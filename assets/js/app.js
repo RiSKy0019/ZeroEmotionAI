@@ -95,7 +95,7 @@
 
     // export / import / reset
     document.getElementById('exportBtn').addEventListener('click', function () {
-      U.download('edge-journal-backup-' + U.todayISO() + '.json', JSON.stringify(Store.getState(), null, 2));
+      U.download('zeroemotionai-backup-' + U.todayISO() + '.json', JSON.stringify(Store.getState(), null, 2));
       UI.toast('Backup downloaded', 'ok');
     });
     document.getElementById('importInput').addEventListener('change', function (e) {
@@ -104,7 +104,7 @@
       reader.onload = function () {
         try {
           var data = JSON.parse(reader.result);
-          if (!data || !Array.isArray(data.trades)) throw new Error('Not a valid Edge Journal backup');
+          if (!data || !Array.isArray(data.trades)) throw new Error('Not a valid ZeroEmotionAI backup');
           Store.replaceAll(data);
           current.accountId = 'all';
           populateAccounts();
