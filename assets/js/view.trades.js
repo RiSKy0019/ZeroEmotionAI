@@ -353,28 +353,30 @@
       var rd = new FileReader(); rd.onload = function () { text[1](rd.result); }; rd.readAsText(f);
     }
     function doImport() {
-      if (!parsed.recognized || !parsed.trades.length || !symbol[0].trim()) return;
+      if (!parsed.recognized || !parsed.trades.length) return;
+      if (parsed.needsSymbol && !symbol[0].trim()) return;
       parsed.trades.forEach(function (t) { Store.add('trades', t); });
       window.toast('Imported ' + parsed.trades.length + ' trade' + (parsed.trades.length > 1 ? 's' : '') + ' from TradingView', 'ok');
       props.onClose();
     }
     var n = parsed.trades.length;
-    var noSymbol = !symbol[0].trim();
+    var missingSym = (!parsed.recognized || parsed.needsSymbol) && !symbol[0].trim();
     var footer = [
       h(UI.Button, { key: 'c', variant: 'ghost', onClick: props.onClose }, 'Cancel'),
-      h(UI.Button, { key: 'i', variant: 'primary', disabled: !parsed.recognized || n === 0 || noSymbol, onClick: doImport }, n ? ('Import ' + n + ' trade' + (n > 1 ? 's' : '')) : 'Import')
+      h(UI.Button, { key: 'i', variant: 'primary', disabled: !parsed.recognized || n === 0 || missingSym, onClick: doImport }, n ? ('Import ' + n + ' trade' + (n > 1 ? 's' : '')) : 'Import')
     ];
+    var MODE_LABEL = { paired: 'List of Trades', single: 'List of Trades', fills: 'Order history (reconstructed)' };
 
     return h(UI.Modal, { title: 'Import from TradingView', wide: true, onClose: props.onClose, footer: footer },
       h('div', { className: 'rounded-xl border border-slate-200 dark:border-ink-600 bg-slate-50 dark:bg-ink-900 p-3 mb-3.5 text-sm text-slate-500 dark:text-slate-400' },
-        h('strong', { className: 'text-slate-700 dark:text-slate-200' }, 'How to export from TradingView: '),
-        'open the ', h('em', null, 'Strategy Tester'), ' or ', h('em', null, 'Paper Trading'), ' panel → ',
-        h('em', null, 'List of Trades'), ' → the ', h('strong', null, 'Export'), ' (download) icon. Then upload or paste the CSV below.',
-        h('div', { className: 'mt-1.5 text-xs' }, 'TradingView exports two rows per trade (entry + exit) and does not include the symbol, so set it here. Futures point value is detected automatically from the P&L column.')),
+        h('strong', { className: 'text-slate-700 dark:text-slate-200' }, 'Which TradingView export to use: '),
+        'in the Account Manager, the export (download) icon works on ', h('strong', null, 'Order History'), ' and ', h('strong', null, 'List of Trades'), ' — both import here. ',
+        h('em', null, 'Orders / Order History'), ' are individual fills, which are auto-paired into round-trip trades.',
+        h('div', { className: 'mt-1.5 text-xs' }, h('strong', null, 'Not importable: '), '“Positions” (open trades only, no exit) and “Balance History” (cash movements, no trade prices). Order history has no P&L column, so the multiplier below is applied to every reconstructed trade — import one instrument type at a time (e.g. futures separately from stocks), or fix the multiplier per trade afterwards.')),
       h('div', { className: 'grid grid-cols-1 sm:grid-cols-3 gap-3.5' },
         h(UI.Field, { label: 'Account' }, h(UI.Select, { value: acc[0], onChange: function (e) { acc[1](e.target.value); } },
           state.accounts.map(function (a) { return h('option', { key: a.id, value: a.id }, a.name); }))),
-        h(UI.Field, { label: 'Symbol', hint: '— required' }, h(UI.Input, { value: symbol[0], placeholder: 'e.g. NQ1!, AAPL', onChange: function (e) { symbol[1](e.target.value); } })),
+        h(UI.Field, { label: 'Symbol', hint: '— for List of Trades' }, h(UI.Input, { value: symbol[0], placeholder: 'e.g. NQ1!, AAPL', onChange: function (e) { symbol[1](e.target.value); } })),
         h(UI.Field, { label: 'Multiplier fallback', hint: '— if no P&L col' }, h(UI.Input, { type: 'number', step: 'any', placeholder: '1', value: mult[0], onChange: function (e) { mult[1](e.target.value); } }))),
       h('div', { className: 'grid grid-cols-1 sm:grid-cols-2 gap-3.5 mt-3.5' },
         h(UI.Field, { label: 'TradingView CSV file' }, h('input', { type: 'file', accept: '.csv,text/csv', onChange: onFile, className: 'text-sm text-slate-500 py-2' }))),
@@ -384,14 +386,17 @@
         h('button', { className: 'text-brand-400 text-xs font-semibold hover:underline', onClick: function () { Fmt.download('tradingview-sample.csv', SAMPLE_TV, 'text/csv'); } }, '⭳ Download sample')),
       text[0].trim() ? h('div', { className: 'mt-4' },
         !parsed.recognized
-          ? h('div', { className: 'rounded-xl border border-dashed border-loss/40 bg-loss/5 text-sm p-4' }, '⚠️ This does not look like a TradingView "List of Trades" export. Expected a header row with Type and Price columns (or Entry/Exit price columns).')
-          : noSymbol
-            ? h('div', { className: 'rounded-xl border border-dashed border-amber/50 bg-amber/5 text-sm p-4' }, 'ℹ️ Enter the symbol above to enable import — TradingView exports don\'t include it.')
+          ? h('div', { className: 'rounded-xl border border-dashed border-loss/40 bg-loss/5 text-sm p-4' },
+              h('div', null, '⚠️ Couldn\'t read this as trades. Use TradingView\'s ', h('strong', null, 'Order History'), ' or ', h('strong', null, 'List of Trades'), ' export. ',
+                h('em', null, 'Positions'), ' (open only) and ', h('em', null, 'Balance History'), ' (no trade prices) can\'t be turned into closed trades.'),
+              (parsed.headers && parsed.headers.length) ? h('div', { className: 'mt-2 text-xs' }, h('span', { className: 'text-slate-500 dark:text-slate-400' }, 'Detected columns: '), h('span', { className: 'font-mono text-slate-600 dark:text-slate-300' }, parsed.headers.join(', '))) : null)
+          : missingSym
+            ? h('div', { className: 'rounded-xl border border-dashed border-amber/50 bg-amber/5 text-sm p-4' }, 'ℹ️ This export doesn\'t include the symbol — enter it above to enable import.')
             : h('div', null,
                 h('div', { className: 'flex gap-3 mb-3 flex-wrap items-center' },
-                  h(UI.Pill, null, h('strong', { className: 'text-profit' }, n), ' trades paired'),
-                  parsed.invalid ? h(UI.Pill, null, h('strong', { className: 'text-loss' }, parsed.invalid), ' skipped') : null,
-                  h(UI.Pill, null, 'mode: ' + parsed.mode)),
+                  h(UI.Pill, null, h('strong', { className: 'text-profit' }, n), ' trade' + (n === 1 ? '' : 's')),
+                  parsed.invalid ? h(UI.Pill, null, h('strong', { className: 'text-loss' }, parsed.invalid), parsed.mode === 'fills' ? ' open/unpaired' : ' skipped') : null,
+                  h(UI.Pill, null, MODE_LABEL[parsed.mode] || parsed.mode)),
                 n ? h('div', { className: 'overflow-x-auto' }, h('table', { className: 'w-full text-sm min-w-[600px]' },
                   h('thead', null, h('tr', { className: 'text-left text-[11px] uppercase tracking-wide text-slate-400' },
                     ['Date', 'Symbol', 'Side', 'Qty', 'Entry', 'Exit', 'Mult', 'P&L'].map(function (c) { return h('th', { key: c, className: 'py-1.5 pr-3 font-semibold' }, c); }))),
