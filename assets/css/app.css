@@ -1,30 +1,214 @@
-/* Small custom layer on top of Tailwind (Play CDN handles the utilities). */
+/* ============================================================
+   app.css — polished custom layer on top of Tailwind Play CDN
+   TradeZella-quality visual design
+   ============================================================ */
 
 html, body { margin: 0; padding: 0; min-height: 100%; }
-body { -webkit-font-smoothing: antialiased; }
+body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 
-/* Scrollbars */
-::-webkit-scrollbar { width: 10px; height: 10px; }
+/* ---- Scrollbars ---- */
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #c9ccd9; border-radius: 8px; }
-.dark ::-webkit-scrollbar-thumb { background: #2a2a3a; }
-::-webkit-scrollbar-thumb:hover { background: #b3b7c7; }
-.dark ::-webkit-scrollbar-thumb:hover { background: #3a3a4d; }
+::-webkit-scrollbar-thumb { background: #d1d5e0; border-radius: 99px; }
+.dark ::-webkit-scrollbar-thumb { background: #2e2e42; }
+::-webkit-scrollbar-thumb:hover { background: #b0b5c5; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #3b3b52; }
 
-/* Hide number input spinners for a cleaner look */
+/* ---- Input cleanup ---- */
 input[type=number]::-webkit-outer-spin-button,
 input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 input[type=number] { -moz-appearance: textfield; }
-
-/* Remove default date/time icon tint mismatch in dark mode */
 .dark input[type="date"]::-webkit-calendar-picker-indicator,
-.dark input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(0.7); }
+.dark input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(0.65); }
 
-/* Chart canvases fill their box */
+/* ---- Chart host ---- */
 .chart-host { position: relative; width: 100%; }
 
-/* Thin scrollbar utility for tab rows */
+/* ---- No scrollbar utility ---- */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* Tailwind Play CDN prints a console note in production; harmless. */
+/* ---- Skeleton loader ---- */
+@keyframes shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position:  600px 0; }
+}
+.skeleton {
+  border-radius: 8px;
+  background: linear-gradient(90deg, #e8eaf2 25%, #f5f6fb 50%, #e8eaf2 75%);
+  background-size: 600px 100%;
+  animation: shimmer 1.4s infinite linear;
+}
+.dark .skeleton {
+  background: linear-gradient(90deg, #1e1e2d 25%, #252535 50%, #1e1e2d 75%);
+  background-size: 600px 100%;
+}
+
+/* ---- Card depth layers ---- */
+.card-base {
+  background: #ffffff;
+  border: 1px solid #e8eaef;
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  transition: box-shadow 0.15s ease;
+}
+.dark .card-base {
+  background: #13131e;
+  border-color: #252535;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+}
+.card-base:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.10); }
+.dark .card-base:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.40); }
+
+/* ---- Stat card value ---- */
+.stat-value {
+  font-size: 1.625rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+/* ---- P&L colours (used in tables, badges) ---- */
+.pnl-pos { color: #0ecb81; }
+.pnl-neg { color: #f6465d; }
+.pnl-zero { color: #8890a4; }
+
+/* ---- Badge pill base ---- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+.badge-long  { background: rgba(14,203,129,0.12); color: #0ecb81; }
+.badge-short { background: rgba(246,70,93,0.12);  color: #f6465d; }
+.badge-win   { background: rgba(14,203,129,0.12); color: #0ecb81; }
+.badge-loss  { background: rgba(246,70,93,0.12);  color: #f6465d; }
+.badge-be    { background: rgba(136,144,164,0.14); color: #8890a4; }
+.badge-brand { background: rgba(124,92,255,0.14); color: #a68fff; }
+.badge-warn  { background: rgba(240,163,42,0.14); color: #f0a32a; }
+
+/* ---- Table ---- */
+.tz-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tz-table th {
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8890a4;
+  background: #f8f9fc;
+  border-bottom: 1px solid #e8eaef;
+  white-space: nowrap;
+  position: sticky; top: 0; z-index: 1;
+}
+.dark .tz-table th {
+  background: #181825;
+  border-color: #252535;
+  color: #6b7194;
+}
+.tz-table td {
+  padding: 11px 14px;
+  border-bottom: 1px solid #f0f1f5;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.dark .tz-table td { border-color: #1e1e2d; }
+.tz-table tbody tr { background: #ffffff; transition: background 0.1s; }
+.dark .tz-table tbody tr { background: #13131e; }
+.tz-table tbody tr:hover { background: #f5f6fb; }
+.dark .tz-table tbody tr:hover { background: #1e1e2d; }
+.tz-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ---- Input base ---- */
+.tz-input {
+  width: 100%;
+  background: #f5f6fb;
+  border: 1px solid #e0e3ec;
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #0f1117;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.dark .tz-input {
+  background: #0c0c14;
+  border-color: #252535;
+  color: #e8eaf2;
+}
+.tz-input:focus { border-color: #7c5cff; box-shadow: 0 0 0 3px rgba(124,92,255,0.18); }
+.tz-input::placeholder { color: #b0b5c8; }
+.dark .tz-input::placeholder { color: #3b3b52; }
+
+/* ---- Button base ---- */
+.tz-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid transparent;
+  padding: 9px 16px;
+  transition: filter 0.12s, background 0.12s, box-shadow 0.12s, transform 0.06s;
+  white-space: nowrap;
+  user-select: none;
+}
+.tz-btn:active { transform: translateY(1px); }
+.tz-btn-primary {
+  background: linear-gradient(135deg, #7c5cff, #6b4cf0);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(124,92,255,0.38);
+}
+.tz-btn-primary:hover { filter: brightness(1.08); box-shadow: 0 6px 20px rgba(124,92,255,0.48); }
+.tz-btn-ghost {
+  background: transparent;
+  border-color: #e0e3ec;
+  color: #5a607a;
+}
+.dark .tz-btn-ghost { border-color: #252535; color: #8890a4; }
+.tz-btn-ghost:hover { background: #f5f6fb; color: #0f1117; }
+.dark .tz-btn-ghost:hover { background: #1e1e2d; color: #e8eaf2; }
+.tz-btn-danger { background: #f6465d; color: #fff; }
+.tz-btn-danger:hover { filter: brightness(1.08); }
+.tz-btn-danger-ghost { background: transparent; border-color: rgba(246,70,93,0.35); color: #f6465d; }
+.tz-btn-danger-ghost:hover { background: rgba(246,70,93,0.08); }
+.tz-btn-sm { padding: 6px 11px; font-size: 12px; border-radius: 8px; }
+
+/* ---- Sidebar hover-expand ---- */
+.sidebar-item-label {
+  transition: opacity 0.18s ease, max-width 0.18s ease;
+  overflow: hidden;
+}
+
+/* ---- Chart tooltip theme ---- */
+/* Handled via Chart.js config in charts.js */
+
+/* ---- Page section head ---- */
+.section-title { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
+.section-sub   { font-size: 13px; color: #8890a4; margin-top: 2px; }
+
+/* ---- Misc ---- */
+.divider { border: none; border-top: 1px solid #e8eaef; }
+.dark .divider { border-color: #252535; }
+.text-tabular { font-variant-numeric: tabular-nums; }
+.truncate-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ---- Transition helpers ---- */
+.trans { transition: all 0.15s ease; }
+.trans-colors { transition: color 0.15s, background 0.15s, border-color 0.15s; }

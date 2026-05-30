@@ -1,25 +1,59 @@
 /* ============================================================
-   view.dashboard.js — overview (window.Views.Dashboard)
-   TradeZella-style layout: stat widgets, win% gauge, avg win/loss bar,
-   profit-factor ring, current streak, cumulative P&L, Edge Score radar,
-   calendar with weekly stats, net daily P&L bars, recent trades.
+   view.dashboard.js — polished Dashboard (Views.Dashboard)
+   TradeZella-style layout with Open Positions panel
    ============================================================ */
 (function () {
   'use strict';
   var h = window.h, UI = window.UI, Fmt = window.Fmt, C = window.Store.calc;
   var useState = React.useState, useMemo = React.useMemo;
 
-  function startingBalance(state, ctx) {
+  function startBal(state, ctx) {
     if (ctx.accountId && ctx.accountId !== 'all') {
       var a = state.accounts.find(function (x) { return x.id === ctx.accountId; });
       return a ? a.startingBalance : 0;
     }
     return state.accounts.reduce(function (s, a) { return s + (a.startingBalance || 0); }, 0);
   }
-  function cardTitle(t, extra) {
-    return h('div', { className: 'flex items-center justify-between mb-1' },
-      h('span', { className: 'text-[11px] uppercase tracking-wide text-slate-400 font-semibold' }, t), extra || null);
+
+  function pnlCls(n) { return n > 0 ? 'pnl-pos' : n < 0 ? 'pnl-neg' : 'pnl-zero'; }
+
+  /* ---- Gauge (semicircle) drawn with SVG — no Chart.js needed ---- */
+  function SvgGauge(props) {
+    var pct = Math.max(0, Math.min(100, props.value || 0));
+    var r = 36, cx2 = 44, cy2 = 44;
+    var circ = Math.PI * r;
+    var filled = (pct / 100) * circ;
+    var color = props.color || '#7c5cff';
+    return h('svg', { width: 88, height: 48, viewBox: '0 0 88 48' },
+      h('path', { d: 'M8 44 A36 36 0 0 1 80 44', fill: 'none', stroke: '#e8eaef', strokeWidth: 8, strokeLinecap: 'round', className: 'dark:hidden' }),
+      h('path', { d: 'M8 44 A36 36 0 0 1 80 44', fill: 'none', stroke: '#1e1e2d', strokeWidth: 8, strokeLinecap: 'round', className: 'hidden dark:block' }),
+      h('path', { d: 'M8 44 A36 36 0 0 1 80 44', fill: 'none', stroke: color, strokeWidth: 8, strokeLinecap: 'round',
+        strokeDasharray: filled + ' ' + circ, style: { transition: 'stroke-dasharray .5s ease' } }));
   }
+
+  /* ---- Win/Loss arc gauge ---- */
+  function WinLossGauge(props) {
+    var wins = props.wins || 0, losses = props.losses || 0, be = props.be || 0;
+    var total = wins + losses + be || 1;
+    var r = 36; var circ = Math.PI * r;
+    var wPct = wins / total, lPct = losses / total;
+    var wFill = wPct * circ, lFill = lPct * circ;
+    return h('svg', { width: 88, height: 52, viewBox: '0 0 88 52' },
+      h('path', { d: 'M8 44 A36 36 0 0 1 80 44', fill: 'none', stroke: '#e8eaef', strokeWidth: 8, strokeLinecap: 'butt', className: 'dark:hidden' }),
+      h('path', { d: 'M8 44 A36 36 0 0 1 80 44', fill: 'none', stroke: '#1e1e2d', strokeWidth: 8, strokeLinecap: 'butt', className: 'hidden dark:block' }),
+      h('path', { d: 'M8 44 A36 36 0 0 1 80 44', fill: 'none', stroke: '#0ecb81', strokeWidth: 8, strokeLinecap: 'butt',
+        strokeDasharray: wFill + ' ' + (circ - wFill) }),
+      h('path', { d: 'M8 44 A36 36 0 0 1 80 44', fill: 'none', stroke: '#f6465d', strokeWidth: 8, strokeLinecap: 'butt',
+        strokeDasharray: '0 ' + wFill + ' ' + lFill + ' ' + (circ - wFill - lFill) }));
+  }
+
+  /* ---- Stat row helper ---- */
+  function kv(label, value, cls) {
+    return h('div', { className: 'flex items-center justify-between py-1.5' },
+      h('span', { className: 'text-[13px] text-slate-500 dark:text-slate-400' }, label),
+      h('span', { className: window.cx('text-[13px] font-semibold tabular-nums', cls || '') }, value));
+  }
+
 
   function Dashboard(props) {
     var state = props.state, ctx = props.ctx;
@@ -27,162 +61,160 @@
     var s = useMemo(function () { return C.stats(trades); }, [trades]);
 
     if (!trades.length) {
-      return h(UI.Empty, { icon: '📊', title: 'No trades in this range yet',
-        sub: 'Add a trade or widen the date range to see your analytics.',
-        action: h(UI.Button, { variant: 'primary', onClick: props.onAddTrade }, '+ Add Trade') });
+      return h(UI.Empty, { icon: '📊', title: 'No trades yet',
+        sub: 'Add your first trade manually, or import via CSV or TradingView.',
+        action: h('button', { className: 'tz-btn tz-btn-primary', onClick: props.onAddTrade }, '+ Add Trade') });
     }
 
-    var startBal = startingBalance(state, ctx);
-    var eq = C.equityCurve(trades, startBal);
-    var dd = C.maxDrawdown(trades, startBal);
-    var edge = C.edgeScore(trades, startBal);
+    var sb = startBal(state, ctx);
+    var eq = C.equityCurve(trades, sb);
+    var dd = C.maxDrawdown(trades, sb);
+    var edge = C.edgeScore(trades, sb);
     var strk = C.streaks(trades);
     var pf = s.profitFactor === Infinity ? '∞' : Fmt.num(s.profitFactor, 2);
     var ratio = s.avgLoss > 0 ? s.avgWin / s.avgLoss : 0;
-    var lastDate = trades.slice().sort(function (a, b) { return C.timeKey(b) - C.timeKey(a); })[0].date;
+    var daily = C.dailyPnl(trades);
+    var dayKeys = Object.keys(daily).sort();
     var hour = new Date().getHours();
-    var greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+    var greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+    var lastDate = trades.slice().sort(function (a, b) { return C.timeKey(b) - C.timeKey(a); })[0].date;
 
-    return h('div', { className: 'space-y-4 animate-fade-in' },
-      // meta strip
+    return h('div', { className: 'space-y-5 animate-fade-in' },
+      /* greeting */
       h('div', { className: 'flex items-center justify-between flex-wrap gap-2' },
-        h('div', { className: 'text-lg font-bold' }, greet + ' 👋'),
-        h('div', { className: 'text-xs text-slate-400' }, s.total + ' trades \u00B7 last activity ' + Fmt.date(lastDate))),
+        h('div', null,
+          h('h2', { className: 'text-xl font-bold' }, greet + ' 👋'),
+          h('p', { className: 'text-sm text-slate-400 dark:text-slate-500 mt-0.5' },
+            s.total + ' trades · last activity ' + Fmt.date(lastDate))),
+        h('button', { className: 'tz-btn tz-btn-ghost text-xs hidden sm:flex', onClick: function () { props.go('reports'); } },
+          'View full reports →')),
 
-      // ---- top widgets ----
+      /* ── top stat cards ─────────────────────────────── */
       h('div', { className: 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4' },
-        NetPnlCard(s),
-        WinRateCard(s),
-        AvgWinLossCard(s, ratio),
-        ProfitFactorCard(s, pf),
-        StreakCard(strk)
-      ),
+        NetPnlCard(s), WinRateCard(s), AvgWinLossCard(s, ratio), PfCard(s, pf), StreakCard(strk)),
 
-      // ---- cumulative P&L + Edge Score ----
+      /* ── equity + edge score ────────────────────────── */
       h('div', { className: 'grid grid-cols-1 xl:grid-cols-3 gap-4' },
-        h(UI.Card, { className: 'p-4 xl:col-span-2' },
-          cardTitle('Daily Net Cumulative P&L', h(UI.Pill, null, ctx.accountId === 'all' ? 'All accounts' : (state.accounts.find(function (a) { return a.id === ctx.accountId; }) || {}).name)),
+        h(UI.Card, { className: 'p-5 xl:col-span-2' },
+          h('div', { className: 'flex items-center justify-between mb-3' },
+            h('p', { className: 'text-xs font-semibold uppercase tracking-wider text-slate-400' }, 'Daily Net Cumulative P&L'),
+            h('span', { className: 'text-xs text-slate-400' }, ctx.accountId === 'all' ? 'All accounts' : (state.accounts.find(function (a) { return a.id === ctx.accountId; }) || {}).name)),
           h(window.Charts.Line, { labels: eq.map(function (p, i) { return i === 0 ? 'Start' : Fmt.dateShort(p.label); }), data: eq.map(function (p) { return p.value; }), height: 280 })),
-        EdgeScoreCard(edge)
-      ),
+        EdgeScoreCard(edge)),
 
-      // ---- calendar + weekly ----
+      /* ── calendar + weekly stats ────────────────────── */
       h(Calendar, { trades: trades }),
 
-      // ---- net daily P&L + recent ----
+      /* ── net daily P&L + recent + open positions ────── */
+      h('div', { className: 'grid grid-cols-1 xl:grid-cols-3 gap-4' },
+        h(UI.Card, { className: 'p-5 xl:col-span-2' },
+          h('p', { className: 'text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3' }, 'Net Daily P&L'),
+          h(window.Charts.Bars, { labels: dayKeys.slice(-30).map(function (k) { return Fmt.dateShort(k); }), data: dayKeys.slice(-30).map(function (k) { return daily[k].pnl; }), height: 240 })),
+        h(UI.Card, { className: 'p-5' },
+          h('p', { className: 'text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3' }, 'Key Metrics'),
+          h('div', { className: 'space-y-0.5' },
+            kv('Profit factor', pf, pf >= '1' ? 'pnl-pos' : 'pnl-neg'),
+            kv('Win rate', Fmt.pct(s.winRate), s.winRate >= 50 ? 'pnl-pos' : 'pnl-neg'),
+            kv('Avg R', s.avgR != null ? Fmt.num(s.avgR, 2) + 'R' : '—', s.avgR != null ? pnlCls(s.avgR) : ''),
+            kv('Expectancy', Fmt.money(s.expectancy, { plus: true }), pnlCls(s.expectancy)),
+            kv('Max drawdown', '-' + Fmt.money(dd.amount), 'pnl-neg'),
+            kv('Drawdown %', Fmt.pct(dd.pct), 'pnl-neg'),
+            kv('Best trade', Fmt.money(s.largestWin, { plus: true }), 'pnl-pos'),
+            kv('Worst trade', Fmt.money(s.largestLoss), 'pnl-neg'),
+            kv('Total fees', Fmt.money(s.fees)),
+            kv('Win streak', String(s.winStreak), 'pnl-pos'),
+            kv('Loss streak', String(s.lossStreak), 'pnl-neg')))),
+
+      /* ── recent trades + open positions ─────────────── */
       h('div', { className: 'grid grid-cols-1 xl:grid-cols-2 gap-4' },
-        NetDailyCard(trades),
-        h(UI.Card, { className: 'p-4' },
-          h('div', { className: 'flex items-center justify-between mb-3' },
-            h('p', { className: 'text-[11px] uppercase tracking-wide text-slate-400 font-semibold' }, 'Recent Trades'),
-            h(UI.Button, { variant: 'ghost', size: 'sm', onClick: function () { props.go('trades'); } }, 'View all')),
-          h(RecentTrades, { trades: trades.slice().sort(function (a, b) { return C.timeKey(b) - C.timeKey(a); }).slice(0, 7), onEdit: props.onEditTrade })))
+        h(RecentTradesPanel, { trades: trades, onEdit: props.onEditTrade, go: props.go }),
+        h(OpenPositionsPanel, { trades: trades, onEdit: props.onEditTrade }))
     );
   }
 
-  /* ---------------- widgets ---------------- */
+
+  /* ---- Stat card widgets ---- */
   function NetPnlCard(s) {
-    return h(UI.Card, { className: 'p-4' },
-      cardTitle('Net P&L', h('span', { className: 'text-[11px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-ink-700 text-slate-400' }, s.total)),
-      h('div', { className: window.cx('text-2xl font-extrabold tracking-tight', Fmt.signColor(s.netPnl)) }, Fmt.money(s.netPnl, { plus: true })),
-      h('div', { className: 'text-xs text-slate-400 mt-1' }, 'Gross +' + Fmt.moneyShort(s.grossWin) + ' / -' + Fmt.moneyShort(s.grossLoss)));
+    return h(UI.Card, { className: 'p-5' },
+      h('div', { className: 'text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1' },
+        'Net P&L', h('span', { className: 'ml-1 px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-ink-700 text-[10px] font-semibold' }, s.total)),
+      h('div', { className: window.cx('stat-value', pnlCls(s.netPnl)) }, Fmt.money(s.netPnl, { plus: true })),
+      h('div', { className: 'text-xs text-slate-400 mt-1.5 space-y-0.5' },
+        h('span', { className: 'text-profit' }, '+' + Fmt.moneyShort(s.grossWin)),
+        h('span', { className: 'mx-1 text-slate-300 dark:text-slate-600' }, '/'),
+        h('span', { className: 'text-loss' }, '-' + Fmt.moneyShort(s.grossLoss))));
   }
 
   function WinRateCard(s) {
-    var segs = [{ value: s.wins, color: '#16c784' }, { value: s.be, color: '#4aa8ff' }, { value: s.losses, color: '#ea3943' }];
-    return h(UI.Card, { className: 'p-4' },
-      cardTitle('Trade win %'),
-      h('div', { className: 'flex items-center justify-between gap-2' },
+    return h(UI.Card, { className: 'p-5' },
+      h('p', { className: 'text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1' }, 'Trade Win %'),
+      h('div', { className: 'flex items-end justify-between gap-2' },
         h('div', null,
-          h('div', { className: 'text-2xl font-extrabold tracking-tight' }, Fmt.pct(s.winRate, 2)),
+          h('div', { className: 'stat-value' }, Fmt.pct(s.winRate, 2)),
           h('div', { className: 'flex gap-2 mt-1 text-[11px] font-semibold' },
-            h('span', { className: 'text-profit' }, s.wins, 'W'),
-            h('span', { className: 'text-blue' , style: { color: '#4aa8ff' } }, s.be, 'BE'),
-            h('span', { className: 'text-loss' }, s.losses, 'L'))),
-        h('div', { className: 'w-[120px] -mb-6' }, h(window.Charts.Gauge, { segments: segs, total: s.total, height: 80 }))));
+            h('span', { className: 'pnl-pos' }, s.wins + 'W'),
+            h('span', { className: 'text-slate-400' }, s.be + 'BE'),
+            h('span', { className: 'pnl-neg' }, s.losses + 'L'))),
+        h(WinLossGauge, { wins: s.wins, losses: s.losses, be: s.be })));
   }
 
   function AvgWinLossCard(s, ratio) {
-    var total = s.avgWin + s.avgLoss;
-    var winPct = total > 0 ? (s.avgWin / total) * 100 : 50;
-    return h(UI.Card, { className: 'p-4' },
-      cardTitle('Avg win/loss trade', h('span', { className: 'cursor-help opacity-60 text-slate-400', title: 'Average winning trade size vs average losing trade size' }, 'ⓘ')),
-      h('div', { className: 'text-2xl font-extrabold tracking-tight' }, ratio ? Fmt.num(ratio, 2) : '—'),
-      h('div', { className: 'flex h-1.5 rounded overflow-hidden mt-3 bg-slate-100 dark:bg-ink-700' },
-        h('span', { style: { width: winPct + '%', background: '#16c784' } }),
-        h('span', { style: { width: (100 - winPct) + '%', background: '#ea3943' } })),
-      h('div', { className: 'flex justify-between text-[11px] font-semibold mt-1.5' },
-        h('span', { className: 'text-profit' }, Fmt.money(s.avgWin)),
-        h('span', { className: 'text-loss' }, '-' + Fmt.money(s.avgLoss).replace(/^[-]/, ''))));
+    var total = s.avgWin + s.avgLoss || 1;
+    var wpct = (s.avgWin / total) * 100;
+    return h(UI.Card, { className: 'p-5' },
+      h('p', { className: 'text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1' }, 'Avg Win / Loss'),
+      h('div', { className: 'stat-value' }, ratio ? Fmt.num(ratio, 2) : '—'),
+      h('div', { className: 'flex h-1.5 rounded-full overflow-hidden bg-slate-100 dark:bg-ink-700 mt-3' },
+        h('div', { style: { width: wpct + '%', background: '#0ecb81' } }),
+        h('div', { style: { width: (100 - wpct) + '%', background: '#f6465d' } })),
+      h('div', { className: 'flex justify-between text-[11px] font-semibold mt-1' },
+        h('span', { className: 'pnl-pos' }, Fmt.money(s.avgWin)),
+        h('span', { className: 'pnl-neg' }, '-' + Fmt.money(s.avgLoss).slice(1))));
   }
 
-  function ProfitFactorCard(s, pf) {
-    var segs = [{ value: s.grossWin, color: '#16c784' }, { value: s.grossLoss, color: '#ea3943' }];
-    return h(UI.Card, { className: 'p-4' },
-      cardTitle('Profit factor', h('span', { className: 'cursor-help opacity-60 text-slate-400', title: 'Gross profit ÷ gross loss' }, 'ⓘ')),
-      h('div', { className: 'flex items-center justify-between gap-2' },
-        h('div', { className: window.cx('text-2xl font-extrabold tracking-tight', s.profitFactor >= 1 ? 'text-profit' : 'text-loss') }, pf),
-        h('div', { className: 'w-[64px]' }, h(window.Charts.Gauge, { segments: segs, full: true, height: 64 }))));
+  function PfCard(s, pf) {
+    var segs = [{ value: s.grossWin, color: '#0ecb81' }, { value: s.grossLoss, color: '#f6465d' }];
+    return h(UI.Card, { className: 'p-5' },
+      h('p', { className: 'text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1' }, 'Profit Factor'),
+      h('div', { className: 'flex items-end justify-between gap-2' },
+        h('div', { className: window.cx('stat-value', s.profitFactor >= 1 ? 'pnl-pos' : 'pnl-neg') }, pf),
+        h(SvgGauge, { value: s.grossLoss ? Math.min(100, (s.grossWin / (s.grossWin + s.grossLoss)) * 100) : 0, color: '#0ecb81' })));
   }
 
   function StreakCard(strk) {
     function col(label, st) {
       var pos = st.sign >= 0;
-      return h('div', { className: 'flex flex-col gap-0.5' },
-        h('span', { className: 'text-[10px] uppercase tracking-wide text-slate-400 font-semibold' }, label),
-        h('span', { className: window.cx('text-xl font-extrabold', st.current === 0 ? 'text-slate-400' : pos ? 'text-profit' : 'text-loss') }, (st.current > 0 ? (pos ? '\u25B2 ' : '\u25BC ') : '') + st.current),
-        h('span', { className: 'text-[10px] text-slate-400' }, 'best ' + st.longest));
+      return h('div', { className: 'flex flex-col items-center gap-0.5' },
+        h('div', { className: window.cx('text-2xl font-extrabold tabular-nums', st.current === 0 ? 'text-slate-400' : pos ? 'pnl-pos' : 'pnl-neg') },
+          (st.current > 0 && pos ? '▲' : st.current > 0 ? '▼' : '') + st.current),
+        h('div', { className: 'text-[10px] uppercase tracking-wide text-slate-400 font-semibold' }, label),
+        h('div', { className: 'text-[10px] text-slate-400' }, 'best ' + st.longest));
     }
-    return h(UI.Card, { className: 'p-4' },
-      cardTitle('Current streak'),
-      h('div', { className: 'flex gap-6 mt-1' }, col('Days', strk.day), col('Trades', strk.trade)));
+    return h(UI.Card, { className: 'p-5' },
+      h('p', { className: 'text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3' }, 'Current Streak'),
+      h('div', { className: 'flex gap-6 justify-center' }, col('Days', strk.day), col('Trades', strk.trade)));
   }
 
   function EdgeScoreCard(edge) {
-    var parts = edge.parts;
-    var color = edge.score >= 75 ? '#16c784' : edge.score >= 50 ? '#f0a32a' : '#ea3943';
-    return h(UI.Card, { className: 'p-4' },
+    var color = edge.score >= 75 ? '#0ecb81' : edge.score >= 50 ? '#f0a32a' : '#f6465d';
+    return h(UI.Card, { className: 'p-5' },
       h('div', { className: 'flex items-center justify-between mb-1' },
-        h('span', { className: 'text-[11px] uppercase tracking-wide text-slate-400 font-semibold' }, 'Edge Score'),
-        h('span', { className: 'cursor-help opacity-60 text-slate-400', title: 'Composite 0-100 score across win %, profit factor, avg win/loss, recovery factor, consistency and max drawdown' }, 'ⓘ')),
-      h(window.Charts.Radar, { labels: ['Win %', 'Profit factor', 'Avg win/loss', 'Recovery', 'Consistency', 'Max drawdown'],
-        data: [parts.winRate, parts.profitFactor, parts.avgWinLoss, parts.recovery, parts.consistency, parts.drawdown], height: 240 }),
+        h('p', { className: 'text-xs font-semibold uppercase tracking-wider text-slate-400' }, 'Edge Score'),
+        h('span', { className: 'cursor-help text-slate-400 text-xs', title: 'Composite 0-100 across win %, profit factor, avg win/loss, recovery, consistency and max drawdown' }, 'ⓘ')),
+      h(window.Charts.Radar, { labels: ['Win %', 'Profit F.', 'W/L Ratio', 'Recovery', 'Consistency', 'Drawdown'],
+        data: [edge.parts.winRate, edge.parts.profitFactor, edge.parts.avgWinLoss, edge.parts.recovery, edge.parts.consistency, edge.parts.drawdown], height: 220 }),
       h('div', { className: 'flex items-center justify-between mt-2' },
-        h('div', null, h('span', { className: 'text-3xl font-extrabold', style: { color: color } }, Fmt.num(edge.score, 1)),
-          h('span', { className: 'text-sm text-slate-400' }, ' / 100')),
-        h('span', { className: 'text-xs text-slate-400' }, edge.score >= 75 ? 'Strong' : edge.score >= 50 ? 'Developing' : 'Needs work')),
-      h('div', { className: 'h-2 rounded-full mt-2', style: { background: 'linear-gradient(90deg,#ea3943,#f0a32a,#16c784)', position: 'relative' } },
-        h('div', { style: { position: 'absolute', top: '-3px', left: 'calc(' + Math.max(0, Math.min(100, edge.score)) + '% - 4px)', width: '8px', height: '8px', borderRadius: '50%', background: '#fff', boxShadow: '0 0 0 2px ' + color } })));
+        h('div', null,
+          h('span', { className: 'text-3xl font-extrabold', style: { color: color } }, Fmt.num(edge.score, 1)),
+          h('span', { className: 'text-sm text-slate-400 ml-1' }, '/ 100')),
+        h('span', { className: 'text-xs font-semibold', style: { color: color } },
+          edge.score >= 75 ? '⬆ Strong' : edge.score >= 50 ? '→ Developing' : '⬇ Needs work')),
+      h('div', { className: 'h-2 rounded-full mt-2 relative overflow-hidden', style: { background: 'linear-gradient(90deg,#f6465d,#f0a32a 50%,#0ecb81)' } },
+        h('div', { className: 'absolute inset-y-0 bg-white/25 rounded-full', style: { left: Math.max(0, Math.min(96, edge.score)) + '%', width: '4%' } })));
   }
 
-  function NetDailyCard(trades) {
-    var daily = C.dailyPnl(trades);
-    var keys = Object.keys(daily).sort().slice(-30);
-    return h(UI.Card, { className: 'p-4' },
-      cardTitle('Net Daily P&L', h(UI.Pill, null, 'last ' + keys.length + ' days')),
-      h(window.Charts.Bars, { labels: keys.map(function (k) { return Fmt.dateShort(k); }), data: keys.map(function (k) { return daily[k].pnl; }), height: 280 }));
-  }
 
-  function RecentTrades(props) {
-    return h('div', { className: 'overflow-x-auto' },
-      h('table', { className: 'w-full text-sm min-w-[560px]' },
-        h('thead', null, h('tr', { className: 'text-left text-[11px] uppercase tracking-wide text-slate-400' },
-          ['Date', 'Symbol', 'Side', 'P&L', 'R', 'Result'].map(function (c) { return h('th', { key: c, className: 'py-2 font-semibold' }, c); }))),
-        h('tbody', null, props.trades.map(function (t) {
-          var p = C.pnlOf(t), r = C.rOf(t);
-          return h('tr', { key: t.id, onClick: function () { props.onEdit(t); },
-            className: 'border-t border-slate-100 dark:border-ink-700 hover:bg-slate-50 dark:hover:bg-ink-700/60 cursor-pointer' },
-            h('td', { className: 'py-2.5' }, Fmt.dateShort(t.date), ' ', h('span', { className: 'text-slate-400' }, t.time || '')),
-            h('td', { className: 'font-semibold' }, t.symbol),
-            h('td', null, h(UI.SideBadge, { side: t.side })),
-            h('td', { className: window.cx('font-semibold', Fmt.signColor(p)) }, Fmt.money(p, { plus: true })),
-            h('td', { className: r == null ? 'text-slate-400' : Fmt.signColor(r) }, r == null ? '—' : Fmt.num(r, 2) + 'R'),
-            h('td', null, h(UI.ResultBadge, { result: C.resultOf(t) })));
-        })))
-    );
-  }
-
-  /* ---------------- calendar with weekly stats ---------------- */
+  /* ---- Calendar with weekly stats ---- */
   function Calendar(props) {
     var daily = useMemo(function () { return C.dailyPnl(props.trades); }, [props.trades]);
     var keys = Object.keys(daily).sort();
@@ -190,58 +222,121 @@
     var ld = new Date(lastIso + 'T00:00:00');
     var cur = useState({ y: ld.getFullYear(), m: ld.getMonth() });
     var c = cur[0], setC = cur[1];
-
     function step(d) { var m = c.m + d, y = c.y; if (m < 0) { m = 11; y--; } if (m > 11) { m = 0; y++; } setC({ y: y, m: m }); }
     function isoOf(day) { return c.y + '-' + String(c.m + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0'); }
-
     var monthName = new Date(c.y, c.m, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     var monthTotal = 0, monthDays = 0;
-    Object.keys(daily).forEach(function (d) { var dt = new Date(d + 'T00:00:00'); if (dt.getFullYear() === c.y && dt.getMonth() === c.m) { monthTotal += daily[d].pnl; monthDays++; } });
-
-    var first = new Date(c.y, c.m, 1), startDow = first.getDay(), days = new Date(c.y, c.m + 1, 0).getDate();
-    // build week rows for the weekly-stats column
+    Object.keys(daily).forEach(function (d) {
+      var dt = new Date(d + 'T00:00:00');
+      if (dt.getFullYear() === c.y && dt.getMonth() === c.m) { monthTotal += daily[d].pnl; monthDays++; }
+    });
+    var first = new Date(c.y, c.m, 1), startDow = first.getDay(), daysInMonth = new Date(c.y, c.m + 1, 0).getDate();
     var weeks = [], cur2 = [];
     for (var i = 0; i < startDow; i++) cur2.push(null);
-    for (var day = 1; day <= days; day++) { cur2.push(day); if (cur2.length === 7) { weeks.push(cur2); cur2 = []; } }
+    for (var day = 1; day <= daysInMonth; day++) {
+      cur2.push(day);
+      if (cur2.length === 7) { weeks.push(cur2); cur2 = []; }
+    }
     if (cur2.length) { while (cur2.length < 7) cur2.push(null); weeks.push(cur2); }
 
-    var cells = [];
-    weeks.forEach(function (w) {
-      w.forEach(function (day, idx) {
-        if (day == null) { cells.push(h('div', { key: 'e' + idx + Math.random() })); return; }
-        var info = daily[isoOf(day)];
-        var tone = info ? (info.pnl >= 0 ? 'bg-profit/10 border-profit/30' : 'bg-loss/10 border-loss/30') : 'bg-slate-50 dark:bg-ink-750 border-slate-200 dark:border-ink-600';
-        cells.push(h('div', { key: isoOf(day), className: window.cx('rounded-xl min-h-[64px] p-2 border flex flex-col gap-0.5', tone) },
-          h('div', { className: 'text-[11px] text-slate-400' }, day),
-          info ? h('div', { className: window.cx('text-[13px] font-bold', info.pnl >= 0 ? 'text-profit' : 'text-loss') }, Fmt.moneyShort(info.pnl)) : null,
-          info ? h('div', { className: 'text-[10px] text-slate-400 mt-auto' }, info.count + (info.count > 1 ? ' trades' : ' trade')) : null));
-      });
-    });
-
-    var weeklyCol = weeks.map(function (w, i) {
-      var sum = 0, cnt = 0;
-      w.forEach(function (day) { if (day != null && daily[isoOf(day)]) { sum += daily[isoOf(day)].pnl; cnt++; } });
-      return h('div', { key: i, className: 'rounded-xl border border-slate-200 dark:border-ink-600 p-2.5 bg-slate-50 dark:bg-ink-750' },
-        h('div', { className: 'text-[11px] text-slate-400 font-semibold' }, 'Week ' + (i + 1)),
-        h('div', { className: window.cx('text-sm font-bold', sum > 0 ? 'text-profit' : sum < 0 ? 'text-loss' : 'text-slate-400') }, sum === 0 && cnt === 0 ? '—' : Fmt.moneyShort(sum)),
-        h('div', { className: 'text-[10px] text-slate-400' }, cnt + (cnt === 1 ? ' day' : ' days')));
-    });
-
-    return h(UI.Card, { className: 'p-4' },
-      h('div', { className: 'flex items-center justify-between mb-3.5 flex-wrap gap-2' },
-        h('p', { className: 'text-[11px] uppercase tracking-wide text-slate-400 font-semibold' }, 'Daily P&L Calendar'),
-        h('div', { className: 'flex items-center gap-2' },
-          h('span', { className: window.cx('font-bold text-sm mr-1', monthTotal >= 0 ? 'text-profit' : 'text-loss') }, Fmt.money(monthTotal, { plus: true }) + ' \u00B7 ' + monthDays + ' days'),
-          h(UI.Button, { variant: 'ghost', size: 'sm', onClick: function () { step(-1); } }, '\u2039'),
-          h(UI.Pill, null, monthName),
-          h(UI.Button, { variant: 'ghost', size: 'sm', onClick: function () { step(1); } }, '\u203A'))),
+    return h(UI.Card, { className: 'p-5' },
+      h('div', { className: 'flex items-center justify-between mb-4 flex-wrap gap-2' },
+        h('p', { className: 'text-xs font-semibold uppercase tracking-wider text-slate-400' }, 'Daily P&L Calendar'),
+        h('div', { className: 'flex items-center gap-2.5' },
+          h('span', { className: window.cx('font-bold text-sm', monthTotal >= 0 ? 'pnl-pos' : 'pnl-neg') },
+            Fmt.money(monthTotal, { plus: true }) + ' · ' + monthDays + ' days'),
+          h('button', { className: 'tz-btn tz-btn-ghost tz-btn-sm', onClick: function () { step(-1); } }, '‹'),
+          h('span', { className: 'text-sm font-semibold min-w-[130px] text-center' }, monthName),
+          h('button', { className: 'tz-btn tz-btn-ghost tz-btn-sm', onClick: function () { step(1); } }, '›'))),
       h('div', { className: 'flex flex-col lg:flex-row gap-3' },
         h('div', { className: 'flex-1' },
-          h('div', { className: 'grid grid-cols-7 gap-1.5 mb-1.5' },
-            ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(function (d) { return h('div', { key: d, className: 'text-[11px] text-slate-400 text-center uppercase tracking-wide' }, d); })),
-          h('div', { className: 'grid grid-cols-7 gap-1.5' }, cells)),
-        h('div', { className: 'lg:w-36 grid grid-cols-2 lg:grid-cols-1 gap-2' }, weeklyCol))
-    );
+          h('div', { className: 'grid grid-cols-7 gap-1 mb-1' },
+            ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(function (d) {
+              return h('div', { key: d, className: 'text-[10px] font-semibold text-slate-400 text-center uppercase tracking-wide pb-1' }, d);
+            })),
+          h('div', { className: 'grid grid-cols-7 gap-1' },
+            weeks.reduce(function (cells, w) {
+              w.forEach(function (day) {
+                if (day == null) { cells.push(h('div', { key: 'e' + cells.length })); return; }
+                var iso = isoOf(day), info = daily[iso];
+                var bg = info ? (info.pnl > 0 ? 'bg-profit/10 border-profit/25' : 'bg-loss/10 border-loss/25') : 'bg-slate-50 dark:bg-ink-800 border-slate-200 dark:border-ink-700';
+                cells.push(h('div', { key: iso, className: 'rounded-lg border min-h-[62px] p-1.5 flex flex-col ' + bg },
+                  h('div', { className: 'text-[11px] text-slate-400 font-medium' }, day),
+                  info ? h('div', { className: window.cx('text-[12px] font-bold mt-0.5', info.pnl >= 0 ? 'pnl-pos' : 'pnl-neg') }, Fmt.moneyShort(info.pnl)) : null,
+                  info ? h('div', { className: 'text-[10px] text-slate-400 mt-auto' }, info.count + (info.count > 1 ? 't' : 't')) : null));
+              });
+              return cells;
+            }, []))),
+        h('div', { className: 'lg:w-32 grid grid-cols-2 lg:grid-cols-1 gap-2' },
+          weeks.map(function (w, i) {
+            var sum = 0, cnt = 0;
+            w.forEach(function (day) { if (day && daily[isoOf(day)]) { sum += daily[isoOf(day)].pnl; cnt++; } });
+            return h('div', { key: i, className: 'rounded-xl border border-slate-200 dark:border-ink-700 bg-slate-50 dark:bg-ink-800 p-2.5' },
+              h('div', { className: 'text-[10px] font-semibold uppercase tracking-wide text-slate-400' }, 'Wk ' + (i + 1)),
+              h('div', { className: window.cx('text-sm font-bold', sum > 0 ? 'pnl-pos' : sum < 0 ? 'pnl-neg' : 'text-slate-400') },
+                cnt ? Fmt.moneyShort(sum) : '—'),
+              h('div', { className: 'text-[10px] text-slate-400' }, cnt + (cnt === 1 ? ' day' : ' days')));
+          }))));
+  }
+
+  /* ---- Recent Trades panel ---- */
+  function RecentTradesPanel(props) {
+    var recent = props.trades.slice().sort(function (a, b) { return C.timeKey(b) - C.timeKey(a); }).slice(0, 8);
+    return h(UI.Card, { className: 'p-5' },
+      h('div', { className: 'flex items-center justify-between mb-3' },
+        h('p', { className: 'text-xs font-semibold uppercase tracking-wider text-slate-400' }, 'Recent Trades'),
+        h('button', { className: 'tz-btn tz-btn-ghost tz-btn-sm', onClick: function () { props.go('trades'); } }, 'View all →')),
+      h('div', { className: 'overflow-x-auto' },
+        h('table', { className: 'tz-table' },
+          h('thead', null, h('tr', null,
+            ['Date', 'Symbol', 'Side', 'P&L', 'R', 'Result'].map(function (c) { return h('th', { key: c }, c); }))),
+          h('tbody', null, recent.map(function (t) {
+            var p = C.pnlOf(t), r = C.rOf(t);
+            return h('tr', { key: t.id, className: 'cursor-pointer', onClick: function () { props.onEdit(t); } },
+              h('td', null, Fmt.dateShort(t.date), ' ', h('span', { className: 'text-slate-400 text-[11px]' }, t.time || '')),
+              h('td', { className: 'font-semibold' }, t.symbol),
+              h('td', null, h('span', { className: t.side === 'short' ? 'badge badge-short' : 'badge badge-long' },
+                t.side === 'short' ? '▼ Short' : '▲ Long')),
+              h('td', { className: 'num font-semibold ' + (p >= 0 ? 'pnl-pos' : 'pnl-neg') }, Fmt.money(p, { plus: true })),
+              h('td', { className: 'num ' + (r == null ? 'text-slate-400' : r >= 0 ? 'pnl-pos' : 'pnl-neg') },
+                r == null ? '—' : Fmt.num(r, 2) + 'R'),
+              h('td', null, h('span', { className: C.resultOf(t) === 'win' ? 'badge badge-win' : C.resultOf(t) === 'loss' ? 'badge badge-loss' : 'badge badge-be' },
+                C.resultOf(t) === 'win' ? 'Win' : C.resultOf(t) === 'loss' ? 'Loss' : 'B/E')));
+          })))));
+  }
+
+  /* ---- Open Positions panel (simulated from trades lacking a close) ---- */
+  function OpenPositionsPanel(props) {
+    var open = useMemo(function () {
+      return props.trades.filter(function (t) { return t.isOpen; })
+        .sort(function (a, b) { return C.timeKey(b) - C.timeKey(a); });
+    }, [props.trades]);
+
+    return h(UI.Card, { className: 'p-5' },
+      h('div', { className: 'flex items-center justify-between mb-3' },
+        h('p', { className: 'text-xs font-semibold uppercase tracking-wider text-slate-400' }, 'Open Positions'),
+        h('span', { className: window.cx('text-xs font-semibold px-2 py-0.5 rounded-full', open.length ? 'badge badge-brand' : 'badge badge-be') },
+          open.length ? open.length + ' open' : 'None')),
+      open.length === 0
+        ? h('div', { className: 'text-center py-10 text-slate-400' },
+            h('div', { className: 'text-3xl mb-2 opacity-40' }, '📭'),
+            h('div', { className: 'text-sm' }, 'No open positions'),
+            h('div', { className: 'text-xs mt-1 text-slate-400' }, 'Mark a trade as open with the "Open position" toggle when adding it.'))
+        : h('div', { className: 'overflow-x-auto' },
+            h('table', { className: 'tz-table' },
+              h('thead', null, h('tr', null,
+                ['Open Date', 'Symbol', 'Side', 'Entry', 'Qty', 'Running P&L'].map(function (c) { return h('th', { key: c }, c); }))),
+              h('tbody', null, open.map(function (t) {
+                var runP = C.pnlOf(t);
+                return h('tr', { key: t.id, className: 'cursor-pointer', onClick: function () { props.onEdit(t); } },
+                  h('td', null, Fmt.dateShort(t.date)),
+                  h('td', { className: 'font-semibold' }, t.symbol),
+                  h('td', null, h('span', { className: t.side === 'short' ? 'badge badge-short' : 'badge badge-long' },
+                    t.side === 'short' ? '▼ Short' : '▲ Long')),
+                  h('td', { className: 'num' }, Fmt.num(t.entry, 2)),
+                  h('td', { className: 'num' }, Fmt.num(t.quantity)),
+                  h('td', { className: 'num font-semibold ' + (runP >= 0 ? 'pnl-pos' : 'pnl-neg') }, Fmt.money(runP, { plus: true })));
+              })))));
   }
 
   window.Views = window.Views || {};

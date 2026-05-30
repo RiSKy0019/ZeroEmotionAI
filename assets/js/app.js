@@ -1,16 +1,46 @@
 /* ============================================================
-   app.js — shell, routing, top bar, modal manager, mount
+   app.js — shell, routing, polished sidebar + topbar, modals
    ============================================================ */
 (function () {
   'use strict';
   var h = window.h, UI = window.UI, Fmt = window.Fmt, Store = window.Store;
   var useState = React.useState, useEffect = React.useEffect;
 
+  /* ---- SVG icon set (inline, no external deps) ---- */
+  var ICONS = {
+    dashboard: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="7" height="7" rx="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5"/></svg>',
+    trades:    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14l4-5 4 3 4-7"/><circle cx="17" cy="5" r="1.5" fill="currentColor" stroke="none"/></svg>',
+    reports:   '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="2"/><path d="M7 13V10M10 13V7M13 13V9"/></svg>',
+    insights:  '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7"/><path d="M10 6v4l3 2"/></svg>',
+    notebook:  '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="12" height="16" rx="2"/><path d="M4 6h12M4 10h8M4 14h6"/><path d="M2 6h2M2 10h2M2 14h2"/></svg>',
+    playbooks: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h12v12H4z" rx="1.5"/><path d="M8 4v12M8 8h8M8 12h8"/></svg>',
+    journal:   '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5l2-3z"/><path d="M8 8h5M8 11h5M8 14h3"/></svg>',
+    export:    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3v10M6 9l4 4 4-4"/><path d="M4 15h12"/></svg>',
+    import:    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13V3M6 7l4-4 4 4"/><path d="M4 15h12"/></svg>',
+    reset:     '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10a6 6 0 116 6"/><path d="M4 6v4h4"/></svg>',
+    sun:       '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="10" cy="10" r="3.5"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.2 4.2l1.4 1.4M14.4 14.4l1.4 1.4M4.2 15.8l1.4-1.4M14.4 5.6l1.4-1.4"/></svg>',
+    moon:      '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M17 13.6A7 7 0 117 3a5.5 5.5 0 0010 10.6z"/></svg>',
+    menu:      '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 5h14M3 10h14M3 15h14"/></svg>',
+    gear:      '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="10" cy="10" r="2.5"/><path d="M10 3v1.5M10 15.5V17M3 10h1.5M15.5 10H17M5.1 5.1l1.1 1.1M13.8 13.8l1.1 1.1M5.1 14.9l1.1-1.1M13.8 6.2l1.1-1.1"/></svg>',
+    plus:      '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 4v12M4 10h12"/></svg>',
+    weekly:    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="14" height="13" rx="2"/><path d="M7 2v2M13 2v2M3 8h14"/><path d="M7 12h2M11 12h2M7 15h2"/></svg>',
+  };
+  function Icon(props) {
+    return h('span', { className: window.cx('inline-flex items-center justify-center shrink-0', props.className), style: { width: props.size || 20, height: props.size || 20 }, dangerouslySetInnerHTML: { __html: ICONS[props.name] || '' } });
+  }
+
   var NAV = [
-    ['dashboard', '▦', 'Dashboard'], ['trades', '▤', 'Trades'], ['reports', '📈', 'Reports'],
-    ['insights', '✨', 'AI Insights'], ['notebook', '📓', 'Notebook'], ['playbooks', '📘', 'Playbooks'], ['journal', '✎', 'Journal & Review']
+    ['dashboard', 'dashboard', 'Dashboard'],
+    ['trades',    'trades',    'Trades'],
+    ['reports',   'reports',   'Reports'],
+    ['insights',  'insights',  'AI Insights'],
+    ['weekly',    'weekly',    'Weekly Summary'],
+    ['notebook',  'notebook',  'Notebook'],
+    ['playbooks', 'playbooks', 'Playbooks'],
+    ['journal',   'journal',   'Journal']
   ];
-  var TITLES = { dashboard: 'Dashboard', trades: 'Trades', reports: 'Reports & Analytics', insights: 'AI Insights', notebook: 'Notebook', playbooks: 'Playbooks', journal: 'Journal & Review' };
+  var TITLES = { dashboard: 'Dashboard', trades: 'Trades', reports: 'Reports & Analytics', insights: 'AI Insights', weekly: 'Weekly Summary', notebook: 'Notebook', playbooks: 'Playbooks', journal: 'Journal & Review' };
+
 
   function readHash() { var r = (location.hash || '').replace('#', ''); return TITLES[r] ? r : 'dashboard'; }
 
@@ -20,8 +50,8 @@
     var currency = window.useCurrency();
     var routeS = useState(readHash()); var route = routeS[0];
     var accS = useState('all'); var rangeS = useState('all');
-    var sidebarS = useState(false); // mobile drawer open
-    var hoverS = useState(false);   // desktop rail hover-expand
+    var sidebarS = useState(false);
+    var hoverS = useState(false);
     var modalS = useState({ type: null, trade: null }); var modal = modalS[0];
 
     useEffect(function () {
@@ -33,224 +63,258 @@
     function go(r) { if (location.hash !== '#' + r) location.hash = r; else routeS[1](r); sidebarS[1](false); }
     var ctx = { accountId: accS[0], range: rangeS[0] };
     function openTradeForm(trade) { modalS[1]({ type: 'trade', trade: trade || null }); }
-    function openCsv() { modalS[1]({ type: 'csv', trade: null }); }
-    function openTradingView() { modalS[1]({ type: 'tv', trade: null }); }
-    function openCurrency() { modalS[1]({ type: 'currency', trade: null }); }
-    function openAccounts() { modalS[1]({ type: 'accounts', trade: null }); }
-    function closeModal() { modalS[1]({ type: null, trade: null }); }
+    function openCsv()         { modalS[1]({ type: 'csv',      trade: null }); }
+    function openTradingView() { modalS[1]({ type: 'tv',       trade: null }); }
+    function openCurrency()    { modalS[1]({ type: 'currency', trade: null }); }
+    function openAccounts()    { modalS[1]({ type: 'accounts', trade: null }); }
+    function closeModal()      { modalS[1]({ type: null,       trade: null }); }
 
-    var viewProps = { state: state, ctx: ctx, go: go, onAddTrade: function () { openTradeForm(); }, onEditTrade: openTradeForm, openTradeForm: openTradeForm, openCsv: openCsv, openTradingView: openTradingView };
+    var viewProps = { state: state, ctx: ctx, go: go,
+      onAddTrade: function () { openTradeForm(); }, onEditTrade: openTradeForm,
+      openTradeForm: openTradeForm, openCsv: openCsv, openTradingView: openTradingView };
     var View = window.Views[cap(route)] || window.Views.Dashboard;
 
-    return h('div', { className: 'flex min-h-screen' },
-      // mobile backdrop
-      sidebarS[0] ? h('div', { className: 'fixed inset-0 bg-black/40 z-40 lg:hidden', onClick: function () { sidebarS[1](false); } }) : null,
+    return h('div', { className: 'flex min-h-screen bg-[#f5f6fb] dark:bg-ink-950' },
+      sidebarS[0] ? h('div', { className: 'fixed inset-0 bg-black/50 z-40 lg:hidden', onClick: function () { sidebarS[1](false); } }) : null,
       h(Sidebar, { route: route, go: go, mobileOpen: sidebarS[0], hover: hoverS[0],
-        onHover: function (v) { hoverS[1](v); }, closeMobile: function () { sidebarS[1](false); } }),
-      // desktop spacer so content sits beside the collapsed rail (the rail overlays when expanded)
-      h('div', { className: 'hidden lg:block w-16 shrink-0' }),
-      // main
+        onHover: function (v) { hoverS[1](v); } }),
+      h('div', { className: 'hidden lg:block w-[68px] shrink-0' }),
       h('div', { className: 'flex-1 min-w-0 flex flex-col' },
-        h(TopBar, { title: TITLES[route], state: state, ctx: ctx, theme: theme, curCode: window.Currency.get().code,
+        h(TopBar, { title: TITLES[route], state: state, ctx: ctx, theme: theme,
+          curCode: window.Currency.get().code,
           onMenu: function () { sidebarS[1](!sidebarS[0]); },
-          onAccount: function (v) { accS[1](v); }, onRange: function (v) { rangeS[1](v); },
-          onAdd: function () { openTradeForm(); }, onOpenRates: openCurrency, onManageAccounts: openAccounts }),
-        h('main', { className: 'p-4 sm:p-6 max-w-[1500px] w-full mx-auto' }, h(View, viewProps))),
-      // modals
-      modal.type === 'trade' ? h(window.Views.TradeForm, { trade: modal.trade, onClose: closeModal }) : null,
-      modal.type === 'csv' ? h(window.Views.ImportCsv, { ctx: ctx, onClose: closeModal }) : null,
-      modal.type === 'tv' ? h(window.Views.ImportTradingView, { ctx: ctx, onClose: closeModal }) : null,
-      modal.type === 'currency' ? h(CurrencySettings, { onClose: closeModal }) : null,
-      modal.type === 'accounts' ? h(AccountsModal, { onClose: closeModal, currentAccountId: accS[0], onAccount: function (v) { accS[1](v); } }) : null,
+          onAccount: function (v) { accS[1](v); },
+          onRange:   function (v) { rangeS[1](v); },
+          onAdd: function () { openTradeForm(); },
+          onOpenRates: openCurrency, onManageAccounts: openAccounts }),
+        h('main', { className: 'flex-1 p-4 sm:p-6 max-w-[1520px] w-full mx-auto' }, h(View, viewProps))),
+      modal.type === 'trade'    ? h(window.Views.TradeForm,        { trade: modal.trade, onClose: closeModal }) : null,
+      modal.type === 'csv'      ? h(window.Views.ImportCsv,        { ctx: ctx, onClose: closeModal }) : null,
+      modal.type === 'tv'       ? h(window.Views.ImportTradingView, { ctx: ctx, onClose: closeModal }) : null,
+      modal.type === 'currency' ? h(CurrencySettings,              { onClose: closeModal }) : null,
+      modal.type === 'accounts' ? h(AccountsModal,                 { onClose: closeModal, currentAccountId: accS[0], onAccount: function (v) { accS[1](v); } }) : null,
       h(UI.ToastHost, null)
     );
   }
   function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
+
+  /* ---- Polished Sidebar ---- */
   function Sidebar(props) {
     var expanded = props.hover || props.mobileOpen;
     return h('aside', {
       onMouseEnter: function () { props.onHover(true); },
       onMouseLeave: function () { props.onHover(false); },
       className: window.cx(
-        'fixed inset-y-0 left-0 z-50 flex flex-col p-3 overflow-hidden border-r border-slate-200 dark:border-ink-600 bg-gradient-to-b from-white to-slate-50 dark:from-ink-850 dark:to-ink-950',
-        'transition-[width,transform] duration-200 ease-out shadow-card lg:shadow-none',
-        // mobile drawer
-        props.mobileOpen ? 'w-60 translate-x-0' : 'w-60 -translate-x-full',
-        // desktop: always visible; slim rail that widens on hover
-        'lg:translate-x-0', expanded ? 'lg:w-60' : 'lg:w-[68px]') },
-      // brand
-      h('div', { className: 'flex items-center gap-3 px-1 pb-5 h-10' },
-        h('div', { className: 'w-10 h-10 shrink-0 rounded-xl grid place-items-center text-xl bg-gradient-to-br from-brand to-accentpink shadow-glow' }, '⚡'),
-        h('div', { className: window.cx('whitespace-nowrap transition-opacity duration-150', expanded ? 'opacity-100' : 'opacity-0 lg:opacity-0') },
-          h('div', { className: 'font-bold tracking-tight leading-tight' }, 'ZeroEmotionAI'),
-          h('div', { className: 'text-[11px] text-slate-400' }, 'Plan · Review · Improve'))),
-      // nav
-      h('nav', { className: 'flex flex-col gap-1 flex-1' },
+        'fixed inset-y-0 left-0 z-50 flex flex-col overflow-hidden',
+        'bg-ink-900 dark:bg-ink-900 border-r border-ink-700',
+        'transition-[width,transform] duration-200 ease-out',
+        props.mobileOpen ? 'w-60 translate-x-0 shadow-card-lg' : 'w-60 -translate-x-full',
+        'lg:translate-x-0', expanded ? 'lg:w-60' : 'lg:w-[68px]'
+      )},
+      /* brand mark */
+      h('div', { className: 'flex items-center gap-3 px-4 pt-5 pb-4 border-b border-ink-700' },
+        h('div', { className: 'w-9 h-9 shrink-0 rounded-xl grid place-items-center bg-gradient-to-br from-brand to-accentpink shadow-glow-sm' },
+          h(Icon, { name: 'lightning', className: 'text-white', size: 18 })),
+        h('div', { className: window.cx('transition-opacity duration-150 whitespace-nowrap overflow-hidden', expanded ? 'opacity-100' : 'opacity-0') },
+          h('div', { className: 'text-white font-bold text-[15px] leading-tight' }, 'ZeroEmotionAI'),
+          h('div', { className: 'text-ink-500 text-[11px] mt-0.5' }, 'Plan · Review · Improve'))),
+      /* nav items */
+      h('nav', { className: 'flex flex-col gap-0.5 flex-1 px-2 py-3' },
         NAV.map(function (n) {
           var active = props.route === n[0];
-          return h('button', { key: n[0], onClick: function () { props.go(n[0]); }, title: n[2],
-            className: window.cx('flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-left transition',
-              active ? 'bg-brand/15 text-slate-900 dark:text-white ring-1 ring-brand/40' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-ink-700') },
-            h('span', { className: 'w-6 text-center text-base shrink-0' }, n[1]),
-            h('span', { className: window.cx('whitespace-nowrap transition-opacity duration-150', expanded ? 'opacity-100' : 'opacity-0') }, n[2]));
+          return h('button', {
+            key: n[0], title: n[2],
+            onClick: function () { props.go(n[0]); },
+            className: window.cx(
+              'flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-left w-full trans-colors',
+              active
+                ? 'bg-brand/20 text-white'
+                : 'text-ink-400 hover:bg-ink-800 hover:text-slate-200')},
+            h(Icon, { name: n[1], size: 18, className: window.cx('shrink-0', active ? 'text-brand-400' : 'text-ink-500') }),
+            h('span', { className: window.cx('whitespace-nowrap transition-opacity duration-150 sidebar-item-label', expanded ? 'opacity-100' : 'opacity-0') }, n[2]),
+            active ? h('span', { className: window.cx('ml-auto h-4 w-1 rounded-full bg-brand-400 shrink-0 transition-opacity', expanded ? 'opacity-100' : 'opacity-0') }) : null
+          );
         })),
+      /* data tools */
       h(DataTools, { expanded: expanded })
     );
   }
 
   function DataTools(props) {
     var expanded = props.expanded;
-    function exportData() { Fmt.download('zeroemotionai-backup-' + Fmt.todayISO() + '.json', JSON.stringify(Store.getState(), null, 2)); window.toast('Backup downloaded', 'ok'); }
+    function exportData() { Fmt.download('zeroemotionai-' + Fmt.todayISO() + '.json', JSON.stringify(Store.getState(), null, 2)); window.toast('Backup downloaded', 'ok'); }
     function importData(e) {
       var file = e.target.files && e.target.files[0]; if (!file) return;
       var rd = new FileReader();
       rd.onload = function () {
-        try { var data = JSON.parse(rd.result); if (!data || !Array.isArray(data.trades)) throw new Error('Not a valid backup'); Store.replaceAll(data); window.toast('Data imported', 'ok'); }
+        try { var data = JSON.parse(rd.result); if (!Array.isArray(data.trades)) throw new Error('Invalid backup'); Store.replaceAll(data); window.toast('Data imported', 'ok'); }
         catch (err) { window.toast('Import failed: ' + err.message, 'err'); }
         e.target.value = '';
       };
       rd.readAsText(file);
     }
-    function reset() { if (window.confirm('Reset everything and reload the sample data? Export a backup first if you want to keep your data.')) { Store.reset(); window.toast('Reset to sample data', 'ok'); } }
-    var rowCls = 'flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-ink-700 transition cursor-pointer w-full whitespace-nowrap';
-    var lbl = function (t) { return h('span', { className: window.cx('transition-opacity duration-150', expanded ? 'opacity-100' : 'opacity-0') }, t); };
-    return h('div', { className: 'pt-3 mt-1 border-t border-slate-200 dark:border-ink-600 flex flex-col gap-1' },
-      h('button', { className: rowCls, onClick: exportData, title: 'Export data' }, h('span', { className: 'w-6 text-center shrink-0' }, '⭳'), lbl('Export data')),
-      h('label', { className: rowCls, title: 'Import data' }, h('span', { className: 'w-6 text-center shrink-0' }, '⭱'), lbl('Import data'),
-        h('input', { type: 'file', accept: 'application/json', onChange: importData, className: 'hidden' })),
-      h('button', { className: window.cx(rowCls, 'text-loss hover:bg-loss/10'), onClick: reset, title: 'Reset / reseed' }, h('span', { className: 'w-6 text-center shrink-0' }, '⟲'), lbl('Reset')));
-  }
-
-  function TopBar(props) {
-    return h('header', { className: 'sticky top-0 z-30 flex items-center gap-3 px-4 sm:px-6 py-3 border-b border-slate-200 dark:border-ink-600 bg-white/80 dark:bg-ink-950/80 backdrop-blur' },
-      h('button', { className: 'lg:hidden text-2xl px-1', onClick: props.onMenu, 'aria-label': 'Menu' }, '☰'),
-      h('div', { className: 'text-lg sm:text-xl font-bold' }, props.title),
-      h('div', { className: 'ml-auto flex items-end gap-2.5' },
-        h('div', { className: 'flex flex-col gap-1' },
-          h('span', { className: 'text-[10px] uppercase tracking-wide text-slate-400 hidden sm:block' }, 'Account'),
-          h('div', { className: 'flex items-center gap-1' },
-            h(UI.Select, { className: 'min-w-[110px] py-1.5', value: (props.ctx.accountId !== 'all' && !props.state.accounts.some(function (a) { return a.id === props.ctx.accountId; })) ? 'all' : props.ctx.accountId, onChange: function (e) { props.onAccount(e.target.value); } },
-              h('option', { value: 'all' }, 'All accounts'),
-              props.state.accounts.map(function (a) { return h('option', { key: a.id, value: a.id }, a.name); })),
-            h('button', { className: 'text-slate-400 hover:text-slate-700 dark:hover:text-white text-sm px-1.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-ink-700', title: 'Add / manage accounts', onClick: props.onManageAccounts }, '\u2699'))),
-        h('div', { className: 'flex flex-col gap-1' },
-          h('span', { className: 'text-[10px] uppercase tracking-wide text-slate-400 hidden sm:block' }, 'Range'),
-          h(UI.Select, { className: 'min-w-[100px] py-1.5', value: props.ctx.range, onChange: function (e) { props.onRange(e.target.value); } },
-            h('option', { value: 'all' }, 'All time'), h('option', { value: 'ytd' }, 'Year to date'),
-            h('option', { value: '30' }, 'Last 30 days'), h('option', { value: '7' }, 'Last 7 days'))),
-        h('div', { className: 'flex flex-col gap-1' },
-          h('span', { className: 'text-[10px] uppercase tracking-wide text-slate-400 hidden sm:block' }, 'Currency'),
-          h('div', { className: 'flex items-center gap-1' },
-            h(UI.Select, { className: 'min-w-[82px] py-1.5', value: props.curCode, onChange: function (e) { window.Currency.set(e.target.value); } },
-              window.Currency.codes.map(function (c) { return h('option', { key: c, value: c }, window.Currency.meta[c].symbol + ' ' + c); })),
-            h('button', { className: 'text-slate-400 hover:text-slate-700 dark:hover:text-white text-sm px-1.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-ink-700', title: 'Edit exchange rates', onClick: props.onOpenRates }, '\u2699'))),
-        h(UI.Button, { variant: 'primary', className: 'whitespace-nowrap', onClick: props.onAdd }, '+ Add Trade'),
-        h('button', { className: 'text-xl px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-ink-700', title: 'Toggle theme', onClick: function () { window.Theme.toggle(); } }, props.theme === 'light' ? '☀️' : '🌙'))
+    function reset() { if (window.confirm('Reset to sample data? Export first to keep your data.')) { Store.reset(); window.toast('Reset done', 'ok'); } }
+    var row = 'flex items-center gap-3 px-3 py-2 rounded-xl text-[12px] font-medium text-ink-400 hover:bg-ink-800 hover:text-slate-200 trans-colors cursor-pointer w-full';
+    var lbl = function (t) { return h('span', { className: window.cx('whitespace-nowrap sidebar-item-label transition-opacity duration-150', expanded ? 'opacity-100' : 'opacity-0') }, t); };
+    return h('div', { className: 'px-2 pb-3 pt-2 border-t border-ink-700 flex flex-col gap-0.5' },
+      h('button', { className: row, onClick: exportData, title: 'Export data' }, h(Icon, { name: 'export', size: 16, className: 'shrink-0 text-ink-500' }), lbl('Export data')),
+      h('label', { className: row, title: 'Import data' }, h(Icon, { name: 'import', size: 16, className: 'shrink-0 text-ink-500' }), lbl('Import data'), h('input', { type: 'file', accept: 'application/json', onChange: importData, className: 'hidden' })),
+      h('button', { className: row + ' hover:text-loss', onClick: reset, title: 'Reset / reseed' }, h(Icon, { name: 'reset', size: 16, className: 'shrink-0 text-ink-500' }), lbl('Reset / reseed'))
     );
   }
 
+
+  /* ---- Polished TopBar ---- */
+  function TopBar(props) {
+    var validAcc = props.ctx.accountId === 'all' || props.state.accounts.some(function (a) { return a.id === props.ctx.accountId; });
+    return h('header', { className: 'sticky top-0 z-30 flex items-center gap-3 px-4 sm:px-6 h-14 border-b border-slate-200 dark:border-ink-700 bg-white/90 dark:bg-ink-900/90 backdrop-blur-md' },
+      /* hamburger */
+      h('button', { className: 'lg:hidden w-8 h-8 grid place-items-center rounded-lg hover:bg-slate-100 dark:hover:bg-ink-800 trans text-slate-500 dark:text-slate-400', onClick: props.onMenu },
+        h(Icon, { name: 'menu', size: 18 })),
+      /* page title */
+      h('h1', { className: 'text-[15px] font-bold tracking-tight' }, props.title),
+      /* right controls */
+      h('div', { className: 'ml-auto flex items-center gap-2' },
+        /* account */
+        h('div', { className: 'hidden sm:flex items-center gap-1.5' },
+          h(UI.Select, { className: 'tz-input py-1.5 text-xs min-w-[130px]',
+            value: validAcc ? props.ctx.accountId : 'all',
+            onChange: function (e) { props.onAccount(e.target.value); } },
+            h('option', { value: 'all' }, 'All accounts'),
+            props.state.accounts.map(function (a) { return h('option', { key: a.id, value: a.id }, a.name); })),
+          h('button', { className: 'w-7 h-7 grid place-items-center rounded-lg hover:bg-slate-100 dark:hover:bg-ink-800 trans text-slate-400 hover:text-slate-700 dark:hover:text-white', title: 'Manage accounts', onClick: props.onManageAccounts },
+            h(Icon, { name: 'gear', size: 14 }))),
+        /* range */
+        h(UI.Select, { className: 'tz-input py-1.5 text-xs min-w-[120px] hidden sm:block',
+          value: props.ctx.range, onChange: function (e) { props.onRange(e.target.value); } },
+          h('option', { value: 'all' }, 'All time'),
+          h('option', { value: 'ytd' }, 'Year to date'),
+          h('option', { value: '30' }, 'Last 30 days'),
+          h('option', { value: '7' }, 'Last 7 days')),
+        /* currency */
+        h('div', { className: 'hidden sm:flex items-center gap-1.5' },
+          h(UI.Select, { className: 'tz-input py-1.5 text-xs min-w-[90px]',
+            value: props.curCode, onChange: function (e) { window.Currency.set(e.target.value); } },
+            window.Currency.codes.map(function (c) { return h('option', { key: c, value: c }, window.Currency.meta[c].symbol + ' ' + c); })),
+          h('button', { className: 'w-7 h-7 grid place-items-center rounded-lg hover:bg-slate-100 dark:hover:bg-ink-800 trans text-slate-400 hover:text-slate-700 dark:hover:text-white', title: 'Exchange rates', onClick: props.onOpenRates },
+            h(Icon, { name: 'gear', size: 14 }))),
+        /* + Add Trade */
+        h('button', { className: 'tz-btn tz-btn-primary flex items-center gap-1.5 py-2 px-3.5', onClick: props.onAdd },
+          h(Icon, { name: 'plus', size: 14, className: 'text-white' }),
+          h('span', { className: 'hidden sm:inline' }, 'Add Trade')),
+        /* theme */
+        h('button', { className: 'w-8 h-8 grid place-items-center rounded-lg hover:bg-slate-100 dark:hover:bg-ink-800 trans text-slate-400 hover:text-slate-700 dark:hover:text-white', title: 'Toggle theme', onClick: function () { window.Theme.toggle(); } },
+          h(Icon, { name: props.theme === 'light' ? 'sun' : 'moon', size: 16 }))
+      )
+    );
+  }
+
+
+  /* ---- Currency Settings Modal ---- */
   function CurrencySettings(props) {
-    window.useCurrency(); // re-render on rate change
+    window.useCurrency();
     var rates = window.Currency.getRates();
     var active = window.Currency.get().code;
-    return h(UI.Modal, { title: 'Currency & exchange rates', onClose: props.onClose,
+    return h(UI.Modal, { title: 'Currency & Exchange Rates', onClose: props.onClose,
       footer: [
         h(UI.Button, { key: 'r', variant: 'ghost', onClick: function () { window.Currency.resetRates(); window.toast('Rates reset to defaults', 'ok'); } }, 'Reset rates'),
         h(UI.Button, { key: 'd', variant: 'primary', onClick: props.onClose }, 'Done')
-      ] },
-      h('p', { className: 'text-sm text-slate-500 dark:text-slate-400 mb-1' }, 'Trades are stored in ', h('strong', null, 'USD'), ' and converted for display only — the underlying values never change.'),
-      h('p', { className: 'text-xs text-slate-400 mb-4' }, 'Rates are manual (no live feed). Set each rate to how many units equal 1 USD, then pick your currency in the top bar.'),
+      ]},
+      h('p', { className: 'text-sm text-slate-500 dark:text-slate-400 mb-1' },
+        'Trades are stored in ', h('strong', null, 'USD'), ' and converted for display only. Underlying data never changes.'),
+      h('p', { className: 'text-xs text-slate-400 mb-4' }, 'Set each rate as units per 1 USD (manual — no live feed).'),
       h('div', { className: 'space-y-2' },
         window.Currency.codes.map(function (code) {
           var meta = window.Currency.meta[code];
-          return h('div', { key: code, className: window.cx('flex items-center gap-3 rounded-xl px-3 py-2 border', code === active ? 'border-brand/40 bg-brand/5' : 'border-slate-200 dark:border-ink-600') },
-            h('div', { className: 'w-24 font-semibold' }, meta.symbol + ' ' + code),
+          var isActive = code === active;
+          return h('div', { key: code, className: window.cx('flex items-center gap-3 rounded-xl px-3.5 py-2.5 border trans-colors',
+              isActive ? 'border-brand/50 bg-brand/5' : 'border-slate-200 dark:border-ink-700') },
+            h('div', { className: 'w-20 font-semibold text-sm' }, meta.symbol + ' ' + code),
             code === 'USD'
-              ? h('div', { className: 'text-sm text-slate-400' }, 'base currency (1.00)')
-              : h('div', { className: 'flex items-center gap-2' },
-                  h('span', { className: 'text-xs text-slate-400' }, '1 USD ='),
-                  h(UI.Input, { type: 'number', step: 'any', className: 'w-32', defaultValue: rates[code],
+              ? h('div', { className: 'text-sm text-slate-400' }, 'Base currency (1.00)')
+              : h('div', { className: 'flex items-center gap-2 flex-1' },
+                  h('span', { className: 'text-xs text-slate-400 whitespace-nowrap' }, '1 USD ='),
+                  h(UI.Input, { type: 'number', step: 'any', className: 'w-28 py-1.5 text-sm',
+                    defaultValue: rates[code],
                     onChange: function (e) { window.Currency.setRate(code, e.target.value); } }),
                   h('span', { className: 'text-xs text-slate-400' }, code)));
         })));
   }
 
+  /* ---- Accounts Modal ---- */
   function AccountsModal(props) {
-    window.useStore(); // re-render on store changes
-    var C = window.Store.calc, Fmt = window.Fmt;
-    var state = window.Store.getState();
-    var editS = useState(null); var editId = editS[0];
+    window.useStore();
+    var C = Store.calc;
+    var state = Store.getState();
+    var editS = useState(null);
     var draftS = useState({ name: '', broker: '', startingBalance: '' }); var draft = draftS[0];
-    var addS = useState({ name: '', broker: '', startingBalance: '' }); var add = addS[0];
-
-    function setDraft(k, v) { draftS[1](Object.assign({}, draft, kv(k, v))); }
-    function setAdd(k, v) { addS[1](Object.assign({}, add, kv(k, v))); }
+    var addS   = useState({ name: '', broker: '', startingBalance: '' }); var add   = addS[0];
     function kv(k, v) { var o = {}; o[k] = v; return o; }
-
-    function startEdit(a) { editS[1](a.id); draftS[1]({ name: a.name, broker: a.broker || '', startingBalance: a.startingBalance }); }
+    function setDraft(k, v) { draftS[1](Object.assign({}, draft, kv(k, v))); }
+    function setAdd(k, v)   { addS[1](Object.assign({}, add, kv(k, v))); }
+    function startEdit(a)   { editS[1](a.id); draftS[1]({ name: a.name, broker: a.broker || '', startingBalance: a.startingBalance }); }
     function saveEdit(id) {
-      var name = String(draft.name || '').trim(); if (!name) { window.toast('Account name is required', 'err'); return; }
-      window.Store.update('accounts', id, { name: name, broker: String(draft.broker || '').trim(), startingBalance: parseFloat(draft.startingBalance) || 0 });
+      var name = String(draft.name || '').trim(); if (!name) { window.toast('Name is required', 'err'); return; }
+      Store.update('accounts', id, { name: name, broker: draft.broker.trim(), startingBalance: parseFloat(draft.startingBalance) || 0 });
       editS[1](null); window.toast('Account updated', 'ok');
     }
     function del(a) {
       if (state.accounts.length <= 1) { window.toast('Keep at least one account', 'err'); return; }
       var n = state.trades.filter(function (t) { return t.accountId === a.id; }).length;
-      var msg = n ? ('Delete "' + a.name + '" and its ' + n + ' trade' + (n > 1 ? 's' : '') + '? This cannot be undone.') : ('Delete "' + a.name + '"?');
-      if (window.confirm(msg)) {
-        window.Store.removeAccount(a.id);
+      if (window.confirm('Delete "' + a.name + '"' + (n ? ' and its ' + n + ' trade(s)' : '') + '?')) {
+        Store.removeAccount(a.id);
         if (props.currentAccountId === a.id) props.onAccount('all');
         window.toast('Account deleted', 'ok');
       }
     }
     function addAccount() {
-      var name = String(add.name || '').trim(); if (!name) { window.toast('Account name is required', 'err'); return; }
-      var acc = window.Store.add('accounts', { name: name, broker: String(add.broker || '').trim(), startingBalance: parseFloat(add.startingBalance) || 0 });
+      var name = add.name.trim(); if (!name) { window.toast('Name is required', 'err'); return; }
+      var acc = Store.add('accounts', { name: name, broker: add.broker.trim(), startingBalance: parseFloat(add.startingBalance) || 0 });
       addS[1]({ name: '', broker: '', startingBalance: '' });
       props.onAccount(acc.id);
-      window.toast('Account "' + name + '" added', 'ok');
+      window.toast('"' + name + '" account added', 'ok');
     }
-
-    var INP = 'w-full bg-slate-50 dark:bg-ink-900 border border-slate-200 dark:border-ink-600 rounded-lg px-2.5 py-1.5 text-sm outline-none focus:border-brand';
-
     return h(UI.Modal, { title: 'Accounts', wide: true, onClose: props.onClose,
       footer: [h(UI.Button, { key: 'd', variant: 'primary', onClick: props.onClose }, 'Done')] },
-      h('p', { className: 'text-sm text-slate-500 dark:text-slate-400 mb-3' }, 'Each account keeps its own trades, starting balance and stats. Pick a single account in the top bar to focus on it, or ', h('strong', null, 'All accounts'), ' to see everything combined.'),
-      h('div', { className: 'space-y-2' },
+      h('p', { className: 'text-sm text-slate-500 dark:text-slate-400 mb-4' },
+        'Each account has its own trades, balance and stats. Pick one in the top bar to focus, or ', h('strong', null, 'All accounts'), ' for the combined view.'),
+      h('div', { className: 'space-y-2 mb-5' },
         state.accounts.map(function (a) {
           var trades = state.trades.filter(function (t) { return t.accountId === a.id; });
           var s = C.stats(trades);
-          if (editId === a.id) {
-            return h('div', { key: a.id, className: 'rounded-xl border border-brand/40 bg-brand/5 p-3' },
+          if (editS[0] === a.id) {
+            return h('div', { key: a.id, className: 'card-base p-3 border-brand/40' },
               h('div', { className: 'grid grid-cols-1 sm:grid-cols-3 gap-2' },
-                h('input', { className: INP, value: draft.name, placeholder: 'Account name', onChange: function (e) { setDraft('name', e.target.value); } }),
-                h('input', { className: INP, value: draft.broker, placeholder: 'Broker (optional)', onChange: function (e) { setDraft('broker', e.target.value); } }),
-                h('input', { className: INP, type: 'number', step: 'any', value: draft.startingBalance, placeholder: 'Starting balance', onChange: function (e) { setDraft('startingBalance', e.target.value); } })),
+                h(UI.Input, { value: draft.name, placeholder: 'Account name', onChange: function (e) { setDraft('name', e.target.value); } }),
+                h(UI.Input, { value: draft.broker, placeholder: 'Broker', onChange: function (e) { setDraft('broker', e.target.value); } }),
+                h(UI.Input, { type: 'number', value: draft.startingBalance, placeholder: 'Starting balance', onChange: function (e) { setDraft('startingBalance', e.target.value); } })),
               h('div', { className: 'flex gap-2 mt-2 justify-end' },
                 h(UI.Button, { variant: 'ghost', size: 'sm', onClick: function () { editS[1](null); } }, 'Cancel'),
                 h(UI.Button, { variant: 'primary', size: 'sm', onClick: function () { saveEdit(a.id); } }, 'Save')));
           }
-          return h('div', { key: a.id, className: 'flex items-center gap-3 rounded-xl border border-slate-200 dark:border-ink-600 px-3 py-2.5 flex-wrap' },
+          return h('div', { key: a.id, className: 'card-base p-3.5 flex items-center gap-3 flex-wrap' },
             h('div', { className: 'flex-1 min-w-[160px]' },
-              h('div', { className: 'font-semibold' }, a.name, a.broker ? h('span', { className: 'text-xs text-slate-400 font-normal ml-2' }, a.broker) : null),
-              h('div', { className: 'text-xs text-slate-400 mt-0.5' }, 'Start ', Fmt.money(a.startingBalance), ' \u00B7 ', trades.length, ' trade' + (trades.length === 1 ? '' : 's'))),
-            h('div', { className: window.cx('text-right font-semibold', Fmt.signColor(s.netPnl)) }, Fmt.money(s.netPnl, { plus: true })),
+              h('div', { className: 'font-semibold text-sm' }, a.name,
+                a.broker ? h('span', { className: 'text-xs text-slate-400 font-normal ml-2' }, a.broker) : null),
+              h('div', { className: 'text-xs text-slate-400 mt-0.5' },
+                'Start ' + Fmt.money(a.startingBalance) + ' · ' + trades.length + ' trade' + (trades.length === 1 ? '' : 's'))),
+            h('div', { className: window.cx('font-bold text-sm', s.netPnl >= 0 ? 'pnl-pos' : 'pnl-neg') }, Fmt.money(s.netPnl, { plus: true })),
             h('div', { className: 'flex gap-1.5' },
               h(UI.Button, { variant: 'ghost', size: 'sm', onClick: function () { startEdit(a); } }, 'Edit'),
               h(UI.Button, { variant: 'dangerGhost', size: 'sm', onClick: function () { del(a); } }, 'Delete')));
         })),
-      h('div', { className: 'mt-4 pt-4 border-t border-slate-200 dark:border-ink-600' },
-        h('div', { className: 'text-xs uppercase tracking-wide text-slate-400 font-semibold mb-2' }, 'Add account'),
+      h('div', { className: 'card-base p-4' },
+        h('div', { className: 'text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2.5' }, 'Add account'),
         h('div', { className: 'grid grid-cols-1 sm:grid-cols-4 gap-2' },
-          h('input', { className: INP, value: add.name, placeholder: 'Account name', onChange: function (e) { setAdd('name', e.target.value); } }),
-          h('input', { className: INP, value: add.broker, placeholder: 'Broker (optional)', onChange: function (e) { setAdd('broker', e.target.value); } }),
-          h('input', { className: INP, type: 'number', step: 'any', value: add.startingBalance, placeholder: 'Starting balance', onChange: function (e) { setAdd('startingBalance', e.target.value); } }),
-          h(UI.Button, { variant: 'primary', onClick: addAccount }, '+ Add account')))
-    );
+          h(UI.Input, { value: add.name, placeholder: 'Account name', onChange: function (e) { setAdd('name', e.target.value); } }),
+          h(UI.Input, { value: add.broker, placeholder: 'Broker (optional)', onChange: function (e) { setAdd('broker', e.target.value); } }),
+          h(UI.Input, { type: 'number', value: add.startingBalance, placeholder: 'Starting balance', onChange: function (e) { setAdd('startingBalance', e.target.value); } }),
+          h(UI.Button, { variant: 'primary', onClick: addAccount }, '+ Add'))));
   }
 
-  // mount
+  /* ---- Mount ---- */
+  window.App = App;
   var root = ReactDOM.createRoot(document.getElementById('root'));
   root.render(h(App, null));
 })();
