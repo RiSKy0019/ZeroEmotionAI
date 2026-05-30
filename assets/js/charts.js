@@ -130,5 +130,51 @@
     return h('div', { className: 'chart-host', style: { height: height + 'px' } }, h('canvas', { ref: ref }));
   }
 
-  window.Charts = { Line: Line, Bars: Bars, Doughnut: Doughnut };
+  function Radar(props) {
+    var theme = window.useTheme();
+    var height = props.height || 260;
+    if (!window.Chart) return h(Fallback, { height: height });
+    var p = palette(theme);
+    var ref = useChart(function (canvas) {
+      return new window.Chart(canvas, {
+        type: 'radar',
+        data: { labels: props.labels, datasets: [{ data: props.data, backgroundColor: rgba(p.brand, 0.22), borderColor: p.brand, borderWidth: 2, pointBackgroundColor: p.brand, pointRadius: 3, pointHoverRadius: 5 }] },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: Object.assign(tip(p), { callbacks: { label: function (c) { return '  ' + Math.round(c.parsed.r) + ' / 100'; } } }) },
+          scales: { r: { min: 0, max: 100, beginAtZero: true,
+            grid: { color: p.grid }, angleLines: { color: p.grid },
+            ticks: { display: false, stepSize: 25, backdropColor: 'transparent' },
+            pointLabels: { color: p.tick, font: { family: FONT, size: 11 } } } }
+        }
+      });
+    }, [JSON.stringify(props.labels), JSON.stringify(props.data), theme], height);
+    return h('div', { className: 'chart-host', style: { height: height + 'px' } }, h('canvas', { ref: ref }));
+  }
+
+  // Semicircle gauge: segments = [{value, color}]; optional remainder fills to `total`.
+  function Gauge(props) {
+    var theme = window.useTheme();
+    var currency = window.useCurrency();
+    var height = props.height || 130;
+    if (!window.Chart) return h(Fallback, { height: height });
+    var p = palette(theme);
+    var ref = useChart(function (canvas) {
+      var segs = props.segments && props.segments.length ? props.segments : [{ value: 1, color: p.brand }];
+      var data = segs.map(function (s) { return s.value; });
+      var colors = segs.map(function (s) { return s.color; });
+      var sum = data.reduce(function (a, b) { return a + b; }, 0);
+      if (props.total && props.total > sum) { data.push(props.total - sum); colors.push(theme === 'light' ? '#e8eaf2' : '#262633'); }
+      if (sum === 0 && !props.total) { data.push(1); colors.push(theme === 'light' ? '#e8eaf2' : '#262633'); }
+      return new window.Chart(canvas, {
+        type: 'doughnut',
+        data: { datasets: [{ data: data, backgroundColor: colors, borderWidth: 0 }] },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '72%', rotation: -90, circumference: 180,
+          plugins: { legend: { display: false }, tooltip: { enabled: false } }, animation: { duration: 300 } }
+      });
+    }, [JSON.stringify(props.segments), props.total, theme, currency], height);
+    return h('div', { className: 'chart-host', style: { height: height + 'px' } }, h('canvas', { ref: ref }));
+  }
+
+  window.Charts = { Line: Line, Bars: Bars, Doughnut: Doughnut, Radar: Radar, Gauge: Gauge };
 })();

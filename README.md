@@ -8,7 +8,7 @@ All data is stored locally in your browser (`localStorage`). Nothing is uploaded
 
 ## Features
 
-- **Dashboard** — Net P&L, win rate, profit factor, expectancy, equity curve, win/loss split, a daily **P&L calendar**, max drawdown, streaks and recent trades.
+- **Dashboard** — Net P&L, **trade win % gauge**, **avg win/loss bar**, **profit-factor ring**, **current-streak** widget, daily net cumulative P&L, an **Edge Score** radar (composite 0–100 across win %, profit factor, avg win/loss, recovery factor, consistency and max drawdown), a daily P&L **calendar with weekly stats**, a **net daily P&L** bar chart, drawdown and recent trades.
 - **Trades** — Full trade log with automatic **P&L** and **R‑multiple**, tags, mistake tagging, emotion + execution rating, **screenshots**, search, sort and filtering.
 - **Manual + CSV import** — Add trades by hand, or import a CSV (auto‑detected columns, live preview, downloadable template).
 - **Import from TradingView** — Bring in trades from a TradingView **List of Trades** CSV export (Strategy Tester / Paper Trading panel → Export). Entry and exit legs are paired into round‑trip trades and futures point value is detected automatically.

@@ -186,6 +186,61 @@
     trades.forEach(function (t) { (t.mistakes || []).forEach(function (m) { if (!map[m]) map[m] = { key: m, pnl: 0, count: 0 }; map[m].pnl += pnlOf(t); map[m].count++; }); });
     return Object.keys(map).map(function (k) { var o = map[k]; o.pnl = r2(o.pnl); return o; }).sort(function (a, b) { return a.pnl - b.pnl; });
   }
+  function clamp(n) { return Math.max(0, Math.min(100, n)); }
+
+  function recoveryFactor(trades, startBal) {
+    var dd = maxDrawdown(trades, startBal).amount;
+    var net = stats(trades).netPnl;
+    return dd > 0 ? net / dd : (net > 0 ? Infinity : 0);
+  }
+  // How evenly profit is spread across winning days (0 = one day carried everything, 100 = perfectly even)
+  function consistency(trades) {
+    var daily = dailyPnl(trades);
+    var profits = Object.keys(daily).map(function (k) { return daily[k].pnl; }).filter(function (p) { return p > 0; });
+    var total = profits.reduce(function (a, b) { return a + b; }, 0);
+    if (total <= 0 || profits.length === 0) return 0;
+    var best = Math.max.apply(null, profits);
+    return clamp((1 - best / total) * 100);
+  }
+  // Composite 0-100 score across 6 normalized components (TradeZella-style "Zella Score")
+  function edgeScore(trades, startBal) {
+    var empty = { score: 0, parts: { winRate: 0, profitFactor: 0, avgWinLoss: 0, recovery: 0, consistency: 0, drawdown: 0 } };
+    if (!trades.length) return empty;
+    var s = stats(trades);
+    var pWin = clamp(s.winRate);
+    var pPf = s.profitFactor === Infinity ? 100 : clamp(s.profitFactor / 3 * 100);
+    var ratio = s.avgLoss > 0 ? s.avgWin / s.avgLoss : (s.avgWin > 0 ? 99 : 0);
+    var pWl = clamp(ratio / 2.5 * 100);
+    var rf = recoveryFactor(trades, startBal);
+    var pRf = rf === Infinity ? 100 : clamp(rf / 3 * 100);
+    var pCons = consistency(trades);
+    var pDd = clamp(100 - Math.min(100, maxDrawdown(trades, startBal).pct * 2));
+    var parts = { winRate: Math.round(pWin), profitFactor: Math.round(pPf), avgWinLoss: Math.round(pWl), recovery: Math.round(pRf), consistency: Math.round(pCons), drawdown: Math.round(pDd) };
+    var score = (pWin + pPf + pWl + pRf + pCons + pDd) / 6;
+    return { score: Math.round(score * 100) / 100, parts: parts };
+  }
+  // Current win/loss streaks by trade and by trading day, plus longest win streaks
+  function streaks(trades) {
+    var sorted = trades.slice().sort(function (a, b) { return timeKey(a) - timeKey(b); });
+    var curT = 0, signT = 0, i;
+    for (i = sorted.length - 1; i >= 0; i--) {
+      var p = pnlOf(sorted[i]);
+      if (p === 0) { if (curT === 0) continue; else break; }
+      var sg = p > 0 ? 1 : -1;
+      if (curT === 0) { signT = sg; curT = 1; } else if (sg === signT) curT++; else break;
+    }
+    var daily = dailyPnl(trades), days = Object.keys(daily).sort();
+    var curD = 0, signD = 0;
+    for (i = days.length - 1; i >= 0; i--) {
+      var dp = daily[days[i]].pnl;
+      if (dp === 0) { if (curD === 0) continue; else break; }
+      var sd = dp > 0 ? 1 : -1;
+      if (curD === 0) { signD = sd; curD = 1; } else if (sd === signD) curD++; else break;
+    }
+    var longestDayWin = 0, rd = 0;
+    days.forEach(function (d) { if (daily[d].pnl > 0) { rd++; longestDayWin = Math.max(longestDayWin, rd); } else rd = 0; });
+    return { trade: { current: curT, sign: signT, longest: stats(trades).winStreak }, day: { current: curD, sign: signD, longest: longestDayWin } };
+  }
 
   window.Store = {
     uid: uid, subscribe: subscribe, getState: getState,
@@ -193,7 +248,8 @@
     getTrades: getTrades, allTags: allTags, allMistakes: allMistakes,
     calc: { r2: r2, pnlOf: pnlOf, rOf: rOf, resultOf: resultOf, stats: stats, equityCurve: equityCurve,
       maxDrawdown: maxDrawdown, groupSum: groupSum, dailyPnl: dailyPnl, rDistribution: rDistribution,
-      disciplineScore: disciplineScore, mistakeCost: mistakeCost, timeKey: timeKey }
+      disciplineScore: disciplineScore, mistakeCost: mistakeCost, timeKey: timeKey,
+      recoveryFactor: recoveryFactor, consistency: consistency, edgeScore: edgeScore, streaks: streaks }
   };
 
   window.useStore = function () {
