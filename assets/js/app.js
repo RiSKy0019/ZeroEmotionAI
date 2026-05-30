@@ -187,45 +187,69 @@
 
 
   /* ---- Polished TopBar ---- */
+  /* ---- Light TopBar (always white, immune to dark mode) ---- */
+  var TB = {
+    /* base styles applied inline so dark mode cannot override */
+    header: { background: '#ffffff', borderBottom: '1px solid #e2e8f0', position: 'sticky', top: 0, zIndex: 30,
+              display: 'flex', alignItems: 'center', gap: '12px', padding: '0 24px', height: '56px',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
+    title:  { fontSize: '15px', fontWeight: 800, letterSpacing: '-0.01em', color: '#1e293b', margin: 0 },
+    btn:    { display: 'grid', placeItems: 'center', width: '30px', height: '30px', borderRadius: '8px',
+              background: 'transparent', border: 'none', cursor: 'pointer', color: '#64748b', transition: 'background 0.15s' },
+    select: { background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '6px 10px',
+              fontSize: '12px', color: '#334155', outline: 'none', fontFamily: 'inherit' },
+    label:  { fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#94a3b8',
+              fontWeight: 600, marginBottom: '2px' },
+    addBtn: { background: 'linear-gradient(135deg,#7c5cff,#6b4cf0)', color: '#fff', border: 'none',
+              borderRadius: '10px', padding: '8px 14px', fontSize: '13px', fontWeight: 700,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+              boxShadow: '0 4px 12px rgba(124,92,255,0.30)', whiteSpace: 'nowrap' }
+  };
+  function tbCol(label, children) {
+    return h('div', { style: { display:'flex', flexDirection:'column', gap:'2px' } },
+      h('span', { style: TB.label }, label), children);
+  }
   function TopBar(props) {
     var validAcc = props.ctx.accountId === 'all' || props.state.accounts.some(function (a) { return a.id === props.ctx.accountId; });
-    return h('header', { className: 'sticky top-0 z-30 flex items-center gap-3 px-4 sm:px-6 h-14 backdrop-blur-md', style:{background:'rgba(17,17,17,0.92)',borderBottom:'1px solid #212121'} },
-      /* hamburger */
-      h('button', { className: 'lg:hidden w-8 h-8 grid place-items-center rounded-lg trans', style:{color:'#989898'}, onClick: props.onMenu },
-        h(Icon, { name: 'menu', size: 18 })),
-      /* page title */
-      h('h1', { className: 'text-[15px] font-extrabold tracking-tight text-[#f5f5f5]' }, props.title),
-      /* right controls */
-      h('div', { className: 'ml-auto flex items-center gap-2' },
+    return h('header', { style: TB.header },
+      h('button', { style: Object.assign({}, TB.btn, { display: 'grid' }), onClick: props.onMenu,
+        className: 'lg:hidden' }, h(Icon, { name: 'menu', size: 18 })),
+      h('h1', { style: TB.title }, props.title),
+      h('div', { style: { marginLeft: 'auto', display: 'flex', alignItems: 'flex-end', gap: '10px', flexWrap: 'wrap' } },
         /* account */
-        h('div', { className: 'hidden sm:flex items-center gap-1.5' },
-          h(UI.Select, { className: 'tz-input py-1.5 text-xs min-w-[130px]',
-            value: validAcc ? props.ctx.accountId : 'all',
-            onChange: function (e) { props.onAccount(e.target.value); } },
-            h('option', { value: 'all' }, 'All accounts'),
-            props.state.accounts.map(function (a) { return h('option', { key: a.id, value: a.id }, a.name); })),
-          h('button', { className: 'w-7 h-7 grid place-items-center rounded-lg trans', style:{color:'#989898'}, title: 'Manage accounts', onClick: props.onManageAccounts },
-            h(Icon, { name: 'gear', size: 14 }))),
+        h('div', { className: 'hidden sm:flex', style: { display: 'flex', alignItems: 'center', gap: '4px' } },
+          tbCol('Account',
+            h('div', { style: { display:'flex', gap:'4px' } },
+              h('select', { style: TB.select, value: validAcc ? props.ctx.accountId : 'all',
+                onChange: function (e) { props.onAccount(e.target.value); } },
+                h('option', { value: 'all' }, 'All accounts'),
+                props.state.accounts.map(function (a) { return h('option', { key: a.id, value: a.id }, a.name); })),
+              h('button', { style: TB.btn, title: 'Manage accounts', onClick: props.onManageAccounts },
+                h(Icon, { name: 'gear', size: 14 }))))),
         /* range */
-        h(UI.Select, { className: 'tz-input py-1.5 text-xs min-w-[120px] hidden sm:block',
-          value: props.ctx.range, onChange: function (e) { props.onRange(e.target.value); } },
-          h('option', { value: 'all' }, 'All time'),
-          h('option', { value: 'ytd' }, 'Year to date'),
-          h('option', { value: '30' }, 'Last 30 days'),
-          h('option', { value: '7' }, 'Last 7 days')),
+        h('div', { className: 'hidden sm:flex' },
+          tbCol('Range',
+            h('select', { style: TB.select, value: props.ctx.range,
+              onChange: function (e) { props.onRange(e.target.value); } },
+              h('option', { value: 'all' }, 'All time'),
+              h('option', { value: 'ytd' }, 'Year to date'),
+              h('option', { value: '30' }, 'Last 30 days'),
+              h('option', { value: '7' }, 'Last 7 days')))),
         /* currency */
-        h('div', { className: 'hidden sm:flex items-center gap-1.5' },
-          h(UI.Select, { className: 'tz-input py-1.5 text-xs min-w-[90px]',
-            value: props.curCode, onChange: function (e) { window.Currency.set(e.target.value); } },
-            window.Currency.codes.map(function (c) { return h('option', { key: c, value: c }, window.Currency.meta[c].symbol + ' ' + c); })),
-          h('button', { className: 'w-7 h-7 grid place-items-center rounded-lg trans', style:{color:'#989898'}, title: 'Exchange rates', onClick: props.onOpenRates },
-            h(Icon, { name: 'gear', size: 14 }))),
-        /* + Add Trade */
-        h('button', { className: 'tz-btn tz-btn-primary flex items-center gap-1.5 py-2 px-3.5', onClick: props.onAdd },
-          h(Icon, { name: 'plus', size: 14, className: 'text-[#04150b]' }),
-          h('span', { className: 'hidden sm:inline text-[#04150b] font-extrabold' }, 'Add Trade')),
-        /* theme */
-        h('button', { className: 'w-8 h-8 grid place-items-center rounded-lg trans', style:{color:'#989898'}, title: 'Toggle theme', onClick: function () { window.Theme.toggle(); } },
+        h('div', { className: 'hidden sm:flex', style: { display: 'flex', alignItems: 'center', gap: '4px' } },
+          tbCol('Currency',
+            h('div', { style: { display:'flex', gap:'4px' } },
+              h('select', { style: TB.select, value: props.curCode,
+                onChange: function (e) { window.Currency.set(e.target.value); } },
+                window.Currency.codes.map(function (c) { return h('option', { key: c, value: c }, window.Currency.meta[c].symbol + ' ' + c); })),
+              h('button', { style: TB.btn, title: 'Exchange rates', onClick: props.onOpenRates },
+                h(Icon, { name: 'gear', size: 14 }))))),
+        /* Add Trade */
+        h('button', { style: TB.addBtn, onClick: props.onAdd },
+          h(Icon, { name: 'plus', size: 14, style: { color: '#fff' } }),
+          h('span', { className: 'hidden sm:inline' }, 'Add Trade')),
+        /* theme toggle */
+        h('button', { style: TB.btn, title: 'Toggle theme', onClick: function () { window.Theme.toggle(); } },
           h(Icon, { name: props.theme === 'light' ? 'sun' : 'moon', size: 16 }))
       )
     );
