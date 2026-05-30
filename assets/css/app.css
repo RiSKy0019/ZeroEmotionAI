@@ -1,6 +1,6 @@
 /* ============================================================
-   app.css — polished custom layer on top of Tailwind Play CDN
-   TradeZella-quality visual design
+   ZeroEmotionAI — app.css
+   Clean light/dark theme, violet accent, Inter font
    ============================================================ */
 
 html, body { margin: 0; padding: 0; min-height: 100%; }
@@ -9,9 +9,9 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 /* ---- Scrollbars ---- */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #d1d5e0; border-radius: 99px; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 .dark ::-webkit-scrollbar-thumb { background: #2e2e42; }
-::-webkit-scrollbar-thumb:hover { background: #b0b5c5; }
 .dark ::-webkit-scrollbar-thumb:hover { background: #3b3b52; }
 
 /* ---- Input cleanup ---- */
@@ -24,7 +24,7 @@ input[type=number] { -moz-appearance: textfield; }
 /* ---- Chart host ---- */
 .chart-host { position: relative; width: 100%; }
 
-/* ---- No scrollbar utility ---- */
+/* ---- No scrollbar ---- */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
@@ -35,7 +35,7 @@ input[type=number] { -moz-appearance: textfield; }
 }
 .skeleton {
   border-radius: 8px;
-  background: linear-gradient(90deg, #e8eaf2 25%, #f5f6fb 50%, #e8eaf2 75%);
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
   background-size: 600px 100%;
   animation: shimmer 1.4s infinite linear;
 }
@@ -44,23 +44,23 @@ input[type=number] { -moz-appearance: textfield; }
   background-size: 600px 100%;
 }
 
-/* ---- Card depth layers ---- */
+/* ---- Card base ---- */
 .card-base {
   background: #ffffff;
   border: 1px solid #e8eaef;
-  border-radius: 16px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
   transition: box-shadow 0.15s ease;
 }
 .dark .card-base {
   background: #13131e;
   border-color: #252535;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
 }
-.card-base:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.10); }
-.dark .card-base:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.40); }
+.card-base:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+.dark .card-base:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.35); }
 
-/* ---- Stat card value ---- */
+/* ---- Stat value ---- */
 .stat-value {
   font-size: 1.625rem;
   font-weight: 800;
@@ -68,12 +68,12 @@ input[type=number] { -moz-appearance: textfield; }
   line-height: 1.1;
 }
 
-/* ---- P&L colours (used in tables, badges) ---- */
-.pnl-pos { color: #0ecb81; }
-.pnl-neg { color: #f6465d; }
-.pnl-zero { color: #8890a4; }
+/* ---- P&L colours ---- */
+.pnl-pos  { color: #0ecb81; }
+.pnl-neg  { color: #f6465d; }
+.pnl-zero { color: #94a3b8; }
 
-/* ---- Badge pill base ---- */
+/* ---- Badge base ---- */
 .badge {
   display: inline-flex;
   align-items: center;
@@ -88,9 +88,9 @@ input[type=number] { -moz-appearance: textfield; }
 .badge-short { background: rgba(246,70,93,0.12);  color: #f6465d; }
 .badge-win   { background: rgba(14,203,129,0.12); color: #0ecb81; }
 .badge-loss  { background: rgba(246,70,93,0.12);  color: #f6465d; }
-.badge-be    { background: rgba(136,144,164,0.14); color: #8890a4; }
-.badge-brand { background: rgba(124,92,255,0.14); color: #a68fff; }
-.badge-warn  { background: rgba(240,163,42,0.14); color: #f0a32a; }
+.badge-be    { background: rgba(148,163,184,0.15); color: #94a3b8; }
+.badge-brand { background: rgba(124,92,255,0.12); color: #7c5cff; }
+.badge-warn  { background: rgba(240,163,42,0.12); color: #f0a32a; }
 
 /* ---- Table ---- */
 .tz-table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -101,8 +101,8 @@ input[type=number] { -moz-appearance: textfield; }
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #8890a4;
-  background: #f8f9fc;
+  color: #94a3b8;
+  background: #f8fafc;
   border-bottom: 1px solid #e8eaef;
   white-space: nowrap;
   position: sticky; top: 0; z-index: 1;
@@ -114,40 +114,39 @@ input[type=number] { -moz-appearance: textfield; }
 }
 .tz-table td {
   padding: 11px 14px;
-  border-bottom: 1px solid #f0f1f5;
+  border-bottom: 1px solid #f1f5f9;
   white-space: nowrap;
   vertical-align: middle;
 }
-.dark .tz-table td { border-color: #1e1e2d; }
+.dark .tz-table td { border-color: #1e1e2d; color: #e2e8f0; }
 .tz-table tbody tr { background: #ffffff; transition: background 0.1s; }
 .dark .tz-table tbody tr { background: #13131e; }
-.tz-table tbody tr:hover { background: #f5f6fb; }
+.tz-table tbody tr:hover { background: #f8fafc; }
 .dark .tz-table tbody tr:hover { background: #1e1e2d; }
 .tz-table .num { text-align: right; font-variant-numeric: tabular-nums; }
 
-/* ---- Input base ---- */
+/* ---- Input ---- */
 .tz-input {
   width: 100%;
-  background: #f5f6fb;
-  border: 1px solid #e0e3ec;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 9px 12px;
   font-size: 13px;
   font-family: inherit;
-  color: #0f1117;
+  color: #0f172a;
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .dark .tz-input {
   background: #0c0c14;
   border-color: #252535;
-  color: #e8eaf2;
+  color: #e2e8f0;
 }
-.tz-input:focus { border-color: #7c5cff; box-shadow: 0 0 0 3px rgba(124,92,255,0.18); }
-.tz-input::placeholder { color: #b0b5c8; }
-.dark .tz-input::placeholder { color: #3b3b52; }
+.tz-input:focus { border-color: #7c5cff; box-shadow: 0 0 0 3px rgba(124,92,255,0.15); }
+.tz-input::placeholder { color: #94a3b8; }
 
-/* ---- Button base ---- */
+/* ---- Buttons ---- */
 .tz-btn {
   display: inline-flex;
   align-items: center;
@@ -168,47 +167,44 @@ input[type=number] { -moz-appearance: textfield; }
 .tz-btn-primary {
   background: linear-gradient(135deg, #7c5cff, #6b4cf0);
   color: #fff;
-  box-shadow: 0 4px 14px rgba(124,92,255,0.38);
+  box-shadow: 0 4px 14px rgba(124,92,255,0.35);
 }
-.tz-btn-primary:hover { filter: brightness(1.08); box-shadow: 0 6px 20px rgba(124,92,255,0.48); }
+.tz-btn-primary:hover { filter: brightness(1.08); }
 .tz-btn-ghost {
   background: transparent;
-  border-color: #e0e3ec;
-  color: #5a607a;
+  border-color: #e2e8f0;
+  color: #64748b;
 }
 .dark .tz-btn-ghost { border-color: #252535; color: #8890a4; }
-.tz-btn-ghost:hover { background: #f5f6fb; color: #0f1117; }
-.dark .tz-btn-ghost:hover { background: #1e1e2d; color: #e8eaf2; }
+.tz-btn-ghost:hover { background: #f1f5f9; color: #1e293b; }
+.dark .tz-btn-ghost:hover { background: #1e1e2d; color: #e2e8f0; }
 .tz-btn-danger { background: #f6465d; color: #fff; }
 .tz-btn-danger:hover { filter: brightness(1.08); }
 .tz-btn-danger-ghost { background: transparent; border-color: rgba(246,70,93,0.35); color: #f6465d; }
 .tz-btn-danger-ghost:hover { background: rgba(246,70,93,0.08); }
 .tz-btn-sm { padding: 6px 11px; font-size: 12px; border-radius: 8px; }
 
-/* ---- Sidebar hover-expand ---- */
+/* ---- Sidebar label transition ---- */
 .sidebar-item-label {
-  transition: opacity 0.18s ease, max-width 0.18s ease;
+  transition: opacity 0.18s ease;
   overflow: hidden;
 }
 
-/* ---- Chart tooltip theme ---- */
-/* Handled via Chart.js config in charts.js */
-
-/* ---- Page section head ---- */
+/* ---- Section typography ---- */
 .section-title { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
-.section-sub   { font-size: 13px; color: #8890a4; margin-top: 2px; }
+.section-sub   { font-size: 13px; color: #94a3b8; margin-top: 2px; }
+.dark .section-sub { color: #6b7194; }
 
-/* ---- Misc ---- */
+/* ---- Divider ---- */
 .divider { border: none; border-top: 1px solid #e8eaef; }
 .dark .divider { border-color: #252535; }
-.text-tabular { font-variant-numeric: tabular-nums; }
-.truncate-2 {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
 
-/* ---- Transition helpers ---- */
+/* ---- Misc ---- */
+.text-tabular { font-variant-numeric: tabular-nums; }
 .trans { transition: all 0.15s ease; }
 .trans-colors { transition: color 0.15s, background 0.15s, border-color 0.15s; }
+
+/* ---- Toast border accents ---- */
+.border-l-brand  { border-left-color: #7c5cff !important; }
+.border-l-profit { border-left-color: #0ecb81 !important; }
+.border-l-loss   { border-left-color: #f6465d !important; }
