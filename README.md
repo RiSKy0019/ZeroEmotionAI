@@ -84,9 +84,14 @@ Date,Time,Symbol,Side,Quantity,Entry,Exit,Fees,Setup,Tags,Mistakes,Risk,Notes
 
 ### Import from TradingView
 
-TradingView has no public account API, so this imports the CSV it produces. In TradingView, open the **Strategy Tester** or **Paper Trading** panel → **List of Trades** → the **Export** (download) icon. Then in the app go to **Trades → ⇪ TradingView**, set the **Symbol** (TradingView exports don't include it), and upload or paste the CSV.
+TradingView has no public account API, so this imports the CSV it produces. In the TradingView Account Manager, use the **Export** (download) icon on one of these tabs:
 
-The importer pairs TradingView's two‑rows‑per‑trade format (an Entry leg + an Exit leg) into single round‑trip trades, and derives the futures point value automatically from the exported P&L column so the numbers match TradingView.
+- **List of Trades** (Strategy Tester) — two rows per trade (Entry + Exit). Set the **Symbol** in the dialog (TradingView omits it here). Futures point value is auto-detected from the P&L column.
+- **Orders / Order History** — individual Buy/Sell fills. These are reconstructed into round-trip trades via FIFO position matching per symbol. Since order history has no P&L column, set the **multiplier** for futures and import one instrument type at a time (or fix the multiplier per trade afterwards).
+
+**Not importable:** *Positions* (open trades only — no exit) and *Balance History* (cash movements — no trade prices). If an export isn't recognized, the dialog lists the **detected column names** so the mapping can be extended.
+
+Open **Trades → ⇪ TradingView**, set the symbol/multiplier as needed, then upload or paste the CSV. A live preview shows the trades (and any open/unpaired or skipped rows) before you import.
 
 ---
 
