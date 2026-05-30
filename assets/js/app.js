@@ -8,9 +8,9 @@
 
   var NAV = [
     ['dashboard', '▦', 'Dashboard'], ['trades', '▤', 'Trades'], ['reports', '📈', 'Reports'],
-    ['playbooks', '📘', 'Playbooks'], ['journal', '✎', 'Journal & Review']
+    ['insights', '✨', 'AI Insights'], ['playbooks', '📘', 'Playbooks'], ['journal', '✎', 'Journal & Review']
   ];
-  var TITLES = { dashboard: 'Dashboard', trades: 'Trades', reports: 'Reports & Analytics', playbooks: 'Playbooks', journal: 'Journal & Review' };
+  var TITLES = { dashboard: 'Dashboard', trades: 'Trades', reports: 'Reports & Analytics', insights: 'AI Insights', playbooks: 'Playbooks', journal: 'Journal & Review' };
 
   function readHash() { var r = (location.hash || '').replace('#', ''); return TITLES[r] ? r : 'dashboard'; }
 

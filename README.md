@@ -15,6 +15,7 @@ All data is stored locally in your browser (`localStorage`). Nothing is uploaded
 - **Reports** — A library of analytics across five tabs (Time, Instruments, Strategy, Behavior, Risk & Quality): P&L and win rate by day, hour, month, symbol, playbook, tag, emotion and rating; long vs short; R‑multiple distribution; mistake cost.
 - **Playbooks** — Define your strategies and rules, and see per‑strategy stats (net P&L, win rate, profit factor, trade count).
 - **Journal & Review** — A discipline score, “what your mistakes cost you” breakdown, and a daily pre‑market / review / lesson log.
+- **AI Insights** — A statistical insight engine that reads your trades and surfaces leaks and strengths in plain English (strongest/weakest day & time, best/worst playbook, costliest mistake, tilt after losses, overtrading, oversizing, profit concentration, risk:reward vs win‑rate). Computed locally — no AI key or internet required.
 - **Multiple accounts** — Add, edit and delete trading accounts (name, broker, starting balance) from the ⚙ next to the account picker. Each account keeps its own trades, balance and stats; pick one to focus, or **All accounts** to see everything combined.
 - **Light & dark themes** — Toggle in the top bar; your choice is remembered.
 - **Display currency** — View all P&L and money in USD, EUR, GBP, INR, JPY, AUD or CAD. Trades are stored in USD and converted for display only; exchange rates are editable (no live feed).
