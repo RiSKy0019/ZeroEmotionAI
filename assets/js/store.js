@@ -91,6 +91,7 @@
      ============================================================ */
   function r2(n) { return Math.round((n + Number.EPSILON) * 100) / 100; }
   function pnlOf(t) {
+    if (t.pnlOverride !== undefined && t.pnlOverride !== null && t.pnlOverride !== '') return r2(Number(t.pnlOverride));
     var dir = t.side === 'short' ? -1 : 1;
     var mult = Number(t.multiplier) || 1; // contract point value; 1 for stocks/crypto/forex
     return r2((t.exit - t.entry) * t.quantity * mult * dir - (t.fees || 0));
