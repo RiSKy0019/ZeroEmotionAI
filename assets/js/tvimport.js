@@ -98,6 +98,10 @@
     if (hasBuySell && (idx.fillPrice >= 0 || idx.price >= 0) && idx.qty >= 0) {
       return fills(rows.slice(1), idx, opts, header);
     }
+    // 4) P&L-only (e.g. Balance History with a realized P&L column) → entries with no prices
+    if (idx.profit >= 0) {
+      return pnlOnly(rows.slice(1), idx, opts, header);
+    }
     return unrec(rows, header);
   }
 
@@ -204,6 +208,29 @@
     });
     trades.sort(function (a, b) { return (a.date + a.time) < (b.date + b.time) ? -1 : 1; });
     return { recognized: true, mode: 'fills', trades: trades, invalid: openSymbols, headers: header, needsSymbol: idx.symbol < 0 };
+  }
+
+  // P&L-only: rows that carry a realized P&L but no usable prices (e.g. Balance
+  // History with a "Realized P&L" column). Stored with pnlOverride so they still
+  // count toward net P&L / win rate / calendar, just without entry/exit.
+  function pnlOnly(dataRows, idx, opts, header) {
+    var sym0 = String(opts.symbol || '').trim().toUpperCase();
+    var out = [], invalid = 0;
+    dataRows.forEach(function (row) {
+      var sym = idx.symbol >= 0 ? String(row[idx.symbol] || '').trim().toUpperCase() : sym0;
+      var profit = num(row[idx.profit]);
+      if (!sym || !isFinite(profit)) { invalid++; return; }
+      var dt = idx.datetime >= 0 ? row[idx.datetime] : '';
+      var qty = idx.qty >= 0 ? num(row[idx.qty]) : NaN;
+      out.push({
+        accountId: opts.accountId, symbol: sym, date: normDate(dt) || todayISO(), time: normTime(dt) || '09:30',
+        side: idx.side >= 0 ? sideFromText(row[idx.side]) : 'long',
+        entry: null, exit: null, quantity: isFinite(qty) && qty > 0 ? qty : 1, fees: 0, multiplier: 1,
+        pnlOverride: round2(profit), riskAmount: null, setup: '', tags: ['TradingView'], mistakes: [],
+        emotion: '', rating: null, screenshots: [], notes: 'P&L-only import (TradingView)'
+      });
+    });
+    return { recognized: out.length > 0, mode: 'pnl', trades: out, invalid: invalid, headers: header, needsSymbol: idx.symbol < 0 };
   }
 
   function guessSymbol(filename) {

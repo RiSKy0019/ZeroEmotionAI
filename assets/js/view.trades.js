@@ -78,8 +78,8 @@
       h('td', { className: 'px-3 font-semibold' }, t.symbol, (t.screenshots && t.screenshots.length) ? h('span', { className: 'ml-1', title: t.screenshots.length + ' screenshot(s)' }, '📎') : null),
       h('td', { className: 'px-3' }, h(UI.SideBadge, { side: t.side })),
       h('td', { className: 'px-3 text-slate-400 whitespace-nowrap' }, t.setup || '—'),
-      h('td', { className: 'px-3 text-right tabular-nums' }, Fmt.num(t.entry, 2)),
-      h('td', { className: 'px-3 text-right tabular-nums' }, Fmt.num(t.exit, 2)),
+      h('td', { className: 'px-3 text-right tabular-nums' }, isFinite(t.entry) ? Fmt.num(t.entry, 2) : '—'),
+      h('td', { className: 'px-3 text-right tabular-nums' }, isFinite(t.exit) ? Fmt.num(t.exit, 2) : '—'),
       h('td', { className: 'px-3 text-right tabular-nums' }, Fmt.num(t.quantity)),
       h('td', { className: window.cx('px-3 text-right font-semibold tabular-nums', Fmt.signColor(p)) }, Fmt.money(p, { plus: true })),
       h('td', { className: window.cx('px-3 text-right tabular-nums', r == null ? 'text-slate-400' : Fmt.signColor(r)) }, r == null ? '—' : Fmt.num(r, 2) + 'R'),
@@ -144,11 +144,15 @@
     function save() {
       var symbol = String(form.symbol || '').trim().toUpperCase();
       var entry = parseFloat(form.entry), exit = parseFloat(form.exit), qty = parseFloat(form.quantity);
+      var hasPrices = [entry, exit, qty].every(isFinite);
+      var carriedOverride = (props.trade && props.trade.pnlOverride != null) ? props.trade.pnlOverride : null;
       if (!symbol) { window.toast('Symbol is required', 'err'); return; }
-      if (![entry, exit, qty].every(isFinite)) { window.toast('Entry, exit and quantity are required', 'err'); return; }
+      if (!hasPrices && carriedOverride == null) { window.toast('Entry, exit and quantity are required', 'err'); return; }
       var obj = {
         accountId: form.accountId, symbol: symbol, date: form.date, time: form.time, side: form.side,
-        quantity: qty, entry: entry, exit: exit, fees: parseFloat(form.fees) || 0,
+        quantity: hasPrices ? qty : (isFinite(qty) ? qty : 1), entry: hasPrices ? entry : null, exit: hasPrices ? exit : null,
+        fees: parseFloat(form.fees) || 0,
+        pnlOverride: hasPrices ? null : carriedOverride,
         multiplier: form.multiplier === '' || form.multiplier == null ? 1 : (parseFloat(form.multiplier) || 1),
         riskAmount: form.riskAmount === '' || form.riskAmount == null ? null : parseFloat(form.riskAmount),
         setup: form.setup, emotion: form.emotion, rating: form.rating ? parseInt(form.rating, 10) : null,
@@ -365,14 +369,14 @@
       h(UI.Button, { key: 'c', variant: 'ghost', onClick: props.onClose }, 'Cancel'),
       h(UI.Button, { key: 'i', variant: 'primary', disabled: !parsed.recognized || n === 0 || missingSym, onClick: doImport }, n ? ('Import ' + n + ' trade' + (n > 1 ? 's' : '')) : 'Import')
     ];
-    var MODE_LABEL = { paired: 'List of Trades', single: 'List of Trades', fills: 'Order history (reconstructed)' };
+    var MODE_LABEL = { paired: 'List of Trades', single: 'List of Trades', fills: 'Order history (reconstructed)', pnl: 'P&L-only (Balance History)' };
 
     return h(UI.Modal, { title: 'Import from TradingView', wide: true, onClose: props.onClose, footer: footer },
       h('div', { className: 'rounded-xl border border-slate-200 dark:border-ink-600 bg-slate-50 dark:bg-ink-900 p-3 mb-3.5 text-sm text-slate-500 dark:text-slate-400' },
         h('strong', { className: 'text-slate-700 dark:text-slate-200' }, 'Which TradingView export to use: '),
         'in the Account Manager, the export (download) icon works on ', h('strong', null, 'Order History'), ' and ', h('strong', null, 'List of Trades'), ' — both import here. ',
         h('em', null, 'Orders / Order History'), ' are individual fills, which are auto-paired into round-trip trades.',
-        h('div', { className: 'mt-1.5 text-xs' }, h('strong', null, 'Not importable: '), '“Positions” (open trades only, no exit) and “Balance History” (cash movements, no trade prices). Order history has no P&L column, so the multiplier below is applied to every reconstructed trade — import one instrument type at a time (e.g. futures separately from stocks), or fix the multiplier per trade afterwards.')),
+        h('div', { className: 'mt-1.5 text-xs' }, h('strong', null, 'Balance History' ), ' imports only if it has a realized P&L column (rows become P&L-only entries, no entry/exit). “Positions” (open trades, no exit) can\'t be imported. Order history has no P&L column, so the multiplier below applies to every reconstructed trade — import one instrument type at a time, or fix the multiplier per trade afterwards.')),
       h('div', { className: 'grid grid-cols-1 sm:grid-cols-3 gap-3.5' },
         h(UI.Field, { label: 'Account' }, h(UI.Select, { value: acc[0], onChange: function (e) { acc[1](e.target.value); } },
           state.accounts.map(function (a) { return h('option', { key: a.id, value: a.id }, a.name); }))),
@@ -405,7 +409,7 @@
                     return h('tr', { key: i, className: 'border-t border-slate-100 dark:border-ink-700' },
                       h('td', { className: 'py-1.5 pr-3' }, t.date), h('td', { className: 'pr-3 font-semibold' }, t.symbol),
                       h('td', { className: 'pr-3' }, h(UI.SideBadge, { side: t.side })), h('td', { className: 'pr-3' }, Fmt.num(t.quantity)),
-                      h('td', { className: 'pr-3' }, Fmt.num(t.entry, 2)), h('td', { className: 'pr-3' }, Fmt.num(t.exit, 2)),
+                      h('td', { className: 'pr-3' }, isFinite(t.entry) ? Fmt.num(t.entry, 2) : '—'), h('td', { className: 'pr-3' }, isFinite(t.exit) ? Fmt.num(t.exit, 2) : '—'),
                       h('td', { className: 'pr-3 text-slate-400' }, '×' + t.multiplier),
                       h('td', { className: window.cx('pr-3 font-semibold', Fmt.signColor(p)) }, Fmt.money(p, { plus: true })));
                   })))) : null,
