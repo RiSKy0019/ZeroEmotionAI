@@ -20,7 +20,8 @@
     var currency = window.useCurrency();
     var routeS = useState(readHash()); var route = routeS[0];
     var accS = useState('all'); var rangeS = useState('all');
-    var sidebarS = useState(false); // mobile open
+    var sidebarS = useState(false); // mobile drawer open
+    var hoverS = useState(false);   // desktop rail hover-expand
     var modalS = useState({ type: null, trade: null }); var modal = modalS[0];
 
     useEffect(function () {
@@ -42,9 +43,12 @@
     var View = window.Views[cap(route)] || window.Views.Dashboard;
 
     return h('div', { className: 'flex min-h-screen' },
-      // sidebar
+      // mobile backdrop
       sidebarS[0] ? h('div', { className: 'fixed inset-0 bg-black/40 z-40 lg:hidden', onClick: function () { sidebarS[1](false); } }) : null,
-      h(Sidebar, { route: route, go: go, open: sidebarS[0] }),
+      h(Sidebar, { route: route, go: go, mobileOpen: sidebarS[0], hover: hoverS[0],
+        onHover: function (v) { hoverS[1](v); }, closeMobile: function () { sidebarS[1](false); } }),
+      // desktop spacer so content sits beside the collapsed rail (the rail overlays when expanded)
+      h('div', { className: 'hidden lg:block w-16 shrink-0' }),
       // main
       h('div', { className: 'flex-1 min-w-0 flex flex-col' },
         h(TopBar, { title: TITLES[route], state: state, ctx: ctx, theme: theme, curCode: window.Currency.get().code,
@@ -64,28 +68,39 @@
   function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
   function Sidebar(props) {
-    return h('aside', { className: window.cx(
-      'w-60 shrink-0 border-r border-slate-200 dark:border-ink-600 bg-gradient-to-b from-white to-slate-50 dark:from-ink-850 dark:to-ink-950 p-4 flex flex-col',
-      'fixed inset-y-0 left-0 z-50 transition-transform lg:static lg:translate-x-0',
-      props.open ? 'translate-x-0' : '-translate-x-full') },
-      h('div', { className: 'flex items-center gap-3 px-1.5 pb-5' },
-        h('div', { className: 'w-10 h-10 rounded-xl grid place-items-center text-xl bg-gradient-to-br from-brand to-accentpink shadow-glow' }, '⚡'),
-        h('div', null,
+    var expanded = props.hover || props.mobileOpen;
+    return h('aside', {
+      onMouseEnter: function () { props.onHover(true); },
+      onMouseLeave: function () { props.onHover(false); },
+      className: window.cx(
+        'fixed inset-y-0 left-0 z-50 flex flex-col p-3 overflow-hidden border-r border-slate-200 dark:border-ink-600 bg-gradient-to-b from-white to-slate-50 dark:from-ink-850 dark:to-ink-950',
+        'transition-[width,transform] duration-200 ease-out shadow-card lg:shadow-none',
+        // mobile drawer
+        props.mobileOpen ? 'w-60 translate-x-0' : 'w-60 -translate-x-full',
+        // desktop: always visible; slim rail that widens on hover
+        'lg:translate-x-0', expanded ? 'lg:w-60' : 'lg:w-[68px]') },
+      // brand
+      h('div', { className: 'flex items-center gap-3 px-1 pb-5 h-10' },
+        h('div', { className: 'w-10 h-10 shrink-0 rounded-xl grid place-items-center text-xl bg-gradient-to-br from-brand to-accentpink shadow-glow' }, '⚡'),
+        h('div', { className: window.cx('whitespace-nowrap transition-opacity duration-150', expanded ? 'opacity-100' : 'opacity-0 lg:opacity-0') },
           h('div', { className: 'font-bold tracking-tight leading-tight' }, 'ZeroEmotionAI'),
           h('div', { className: 'text-[11px] text-slate-400' }, 'Plan · Review · Improve'))),
+      // nav
       h('nav', { className: 'flex flex-col gap-1 flex-1' },
         NAV.map(function (n) {
           var active = props.route === n[0];
-          return h('button', { key: n[0], onClick: function () { props.go(n[0]); },
+          return h('button', { key: n[0], onClick: function () { props.go(n[0]); }, title: n[2],
             className: window.cx('flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-left transition',
               active ? 'bg-brand/15 text-slate-900 dark:text-white ring-1 ring-brand/40' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-ink-700') },
-            h('span', { className: 'w-5 text-center opacity-90' }, n[1]), n[2]);
+            h('span', { className: 'w-6 text-center text-base shrink-0' }, n[1]),
+            h('span', { className: window.cx('whitespace-nowrap transition-opacity duration-150', expanded ? 'opacity-100' : 'opacity-0') }, n[2]));
         })),
-      h(DataTools, null)
+      h(DataTools, { expanded: expanded })
     );
   }
 
-  function DataTools() {
+  function DataTools(props) {
+    var expanded = props.expanded;
     function exportData() { Fmt.download('zeroemotionai-backup-' + Fmt.todayISO() + '.json', JSON.stringify(Store.getState(), null, 2)); window.toast('Backup downloaded', 'ok'); }
     function importData(e) {
       var file = e.target.files && e.target.files[0]; if (!file) return;
@@ -98,11 +113,13 @@
       rd.readAsText(file);
     }
     function reset() { if (window.confirm('Reset everything and reload the sample data? Export a backup first if you want to keep your data.')) { Store.reset(); window.toast('Reset to sample data', 'ok'); } }
-    return h('div', { className: 'pt-3.5 border-t border-slate-200 dark:border-ink-600 flex flex-col gap-2' },
-      h(UI.Button, { variant: 'ghost', className: 'w-full', onClick: exportData }, '⭳ Export data'),
-      h('label', { className: 'inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition px-3.5 py-2 text-[13px] bg-transparent border border-slate-200 dark:border-ink-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-ink-700 cursor-pointer w-full' },
-        '⭱ Import data', h('input', { type: 'file', accept: 'application/json', onChange: importData, className: 'hidden' })),
-      h(UI.Button, { variant: 'dangerGhost', className: 'w-full', onClick: reset }, '⟲ Reset / reseed'));
+    var rowCls = 'flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-ink-700 transition cursor-pointer w-full whitespace-nowrap';
+    var lbl = function (t) { return h('span', { className: window.cx('transition-opacity duration-150', expanded ? 'opacity-100' : 'opacity-0') }, t); };
+    return h('div', { className: 'pt-3 mt-1 border-t border-slate-200 dark:border-ink-600 flex flex-col gap-1' },
+      h('button', { className: rowCls, onClick: exportData, title: 'Export data' }, h('span', { className: 'w-6 text-center shrink-0' }, '⭳'), lbl('Export data')),
+      h('label', { className: rowCls, title: 'Import data' }, h('span', { className: 'w-6 text-center shrink-0' }, '⭱'), lbl('Import data'),
+        h('input', { type: 'file', accept: 'application/json', onChange: importData, className: 'hidden' })),
+      h('button', { className: window.cx(rowCls, 'text-loss hover:bg-loss/10'), onClick: reset, title: 'Reset / reseed' }, h('span', { className: 'w-6 text-center shrink-0' }, '⟲'), lbl('Reset')));
   }
 
   function TopBar(props) {
