@@ -48,6 +48,14 @@
   }
   function remove(coll, id) { commit(withArr(coll, state[coll].filter(function (x) { return x.id !== id; }))); }
 
+  // Deleting an account also removes its trades (keeps data consistent).
+  function removeAccount(id) {
+    var n = Object.assign({}, state);
+    n.accounts = state.accounts.filter(function (a) { return a.id !== id; });
+    n.trades = state.trades.filter(function (t) { return t.accountId !== id; });
+    commit(n);
+  }
+
   function reset() { commit(ensure(window.seedState ? window.seedState(uid) : empty())); }
   function clearAll() {
     var n = empty(); n.accounts = state.accounts; commit(n);
@@ -181,7 +189,7 @@
 
   window.Store = {
     uid: uid, subscribe: subscribe, getState: getState,
-    add: add, update: update, remove: remove, reset: reset, clearAll: clearAll, replaceAll: replaceAll,
+    add: add, update: update, remove: remove, removeAccount: removeAccount, reset: reset, clearAll: clearAll, replaceAll: replaceAll,
     getTrades: getTrades, allTags: allTags, allMistakes: allMistakes,
     calc: { r2: r2, pnlOf: pnlOf, rOf: rOf, resultOf: resultOf, stats: stats, equityCurve: equityCurve,
       maxDrawdown: maxDrawdown, groupSum: groupSum, dailyPnl: dailyPnl, rDistribution: rDistribution,
