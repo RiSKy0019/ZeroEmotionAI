@@ -76,7 +76,7 @@
       openTradeForm: openTradeForm, openCsv: openCsv, openTradingView: openTradingView };
     var View = window.Views[cap(route)] || window.Views.Dashboard;
 
-    return h('div', { className: 'flex min-h-screen bg-[#f5f6fb] dark:bg-ink-950' },
+    return h('div', { className: 'flex min-h-screen bg-slate-50 dark:bg-ink-950' },
       sidebarS[0] ? h('div', { className: 'fixed inset-0 bg-black/50 z-40 lg:hidden', onClick: function () { sidebarS[1](false); } }) : null,
       h(Sidebar, { route: route, go: go, mobileOpen: sidebarS[0], hover: hoverS[0],
         onHover: function (v) { hoverS[1](v); } }),
@@ -101,7 +101,7 @@
   function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
 
-  /* ---- Polished Sidebar ---- */
+  /* ---- Light Sidebar ---- */
   function Sidebar(props) {
     var expanded = props.hover || props.mobileOpen;
     return h('aside', {
@@ -109,18 +109,18 @@
       onMouseLeave: function () { props.onHover(false); },
       className: window.cx(
         'fixed inset-y-0 left-0 z-50 flex flex-col overflow-hidden',
-        'bg-ink-900 dark:bg-ink-900 border-r border-ink-700',
-        'transition-[width,transform] duration-200 ease-out',
-        props.mobileOpen ? 'w-60 translate-x-0 shadow-card-lg' : 'w-60 -translate-x-full',
+        'bg-white border-r border-slate-200',
+        'transition-[width,transform] duration-200 ease-out shadow-sm',
+        props.mobileOpen ? 'w-60 translate-x-0 shadow-lg' : 'w-60 -translate-x-full',
         'lg:translate-x-0', expanded ? 'lg:w-60' : 'lg:w-[68px]'
       )},
       /* brand mark */
-      h('div', { className: 'flex items-center gap-3 px-4 pt-5 pb-4 border-b border-ink-700' },
+      h('div', { className: 'flex items-center gap-3 px-4 pt-5 pb-4 border-b border-slate-100' },
         h('div', { className: 'w-9 h-9 shrink-0 rounded-xl grid place-items-center bg-gradient-to-br from-brand to-accentpink shadow-glow-sm' },
           h(Icon, { name: 'lightning', className: 'text-white', size: 18 })),
         h('div', { className: window.cx('transition-opacity duration-150 whitespace-nowrap overflow-hidden', expanded ? 'opacity-100' : 'opacity-0') },
-          h('div', { className: 'text-white font-bold text-[15px] leading-tight' }, 'ZeroEmotionAI'),
-          h('div', { className: 'text-ink-500 text-[11px] mt-0.5' }, 'Plan · Review · Improve'))),
+          h('div', { className: 'font-bold text-[15px] tracking-tight text-slate-800' }, 'ZeroEmotionAI'),
+          h('div', { className: 'text-[11px] mt-0.5 text-slate-400' }, 'Plan \u00b7 Review \u00b7 Improve'))),
       /* nav items */
       h('nav', { className: 'flex flex-col gap-0.5 flex-1 px-2 py-3' },
         NAV.map(function (n) {
@@ -131,11 +131,12 @@
             className: window.cx(
               'flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-left w-full trans-colors',
               active
-                ? 'bg-brand/20 text-white'
-                : 'text-ink-400 hover:bg-ink-800 hover:text-slate-200')},
-            h(Icon, { name: n[1], size: 18, className: window.cx('shrink-0', active ? 'text-brand-400' : 'text-ink-500') }),
+                ? 'bg-brand/10 text-brand-600 ring-1 ring-brand/20'
+                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800')
+          },
+            h(Icon, { name: n[1], size: 18, className: window.cx('shrink-0', active ? 'text-brand-500' : 'text-slate-400') }),
             h('span', { className: window.cx('whitespace-nowrap transition-opacity duration-150 sidebar-item-label', expanded ? 'opacity-100' : 'opacity-0') }, n[2]),
-            active ? h('span', { className: window.cx('ml-auto h-4 w-1 rounded-full bg-brand-400 shrink-0 transition-opacity', expanded ? 'opacity-100' : 'opacity-0') }) : null
+            active ? h('span', { className: window.cx('ml-auto h-4 w-1 rounded-full bg-brand shrink-0 transition-opacity', expanded ? 'opacity-100' : 'opacity-0') }) : null
           );
         })),
       /* data tools */
@@ -145,7 +146,7 @@
 
   function DataTools(props) {
     var expanded = props.expanded;
-    function exportData() { Fmt.download('zeroemotionai-' + Fmt.todayISO() + '.json', JSON.stringify(Store.getState(), null, 2)); window.toast('Backup downloaded', 'ok'); }
+    function exportData() { Fmt.download('zeroemotionai-backup-' + Fmt.todayISO() + '.json', JSON.stringify(Store.getState(), null, 2)); window.toast('Backup downloaded', 'ok'); }
     function importData(e) {
       var file = e.target.files && e.target.files[0]; if (!file) return;
       var rd = new FileReader();
@@ -157,12 +158,12 @@
       rd.readAsText(file);
     }
     function reset() { if (window.confirm('Reset to sample data? Export first to keep your data.')) { Store.reset(); window.toast('Reset done', 'ok'); } }
-    var row = 'flex items-center gap-3 px-3 py-2 rounded-xl text-[12px] font-medium text-ink-400 hover:bg-ink-800 hover:text-slate-200 trans-colors cursor-pointer w-full';
+    var row = 'flex items-center gap-3 px-3 py-2 rounded-xl text-[12px] font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-800 trans-colors cursor-pointer w-full';
     var lbl = function (t) { return h('span', { className: window.cx('whitespace-nowrap sidebar-item-label transition-opacity duration-150', expanded ? 'opacity-100' : 'opacity-0') }, t); };
-    return h('div', { className: 'px-2 pb-3 pt-2 border-t border-ink-700 flex flex-col gap-0.5' },
-      h('button', { className: row, onClick: exportData, title: 'Export data' }, h(Icon, { name: 'export', size: 16, className: 'shrink-0 text-ink-500' }), lbl('Export data')),
-      h('label', { className: row, title: 'Import data' }, h(Icon, { name: 'import', size: 16, className: 'shrink-0 text-ink-500' }), lbl('Import data'), h('input', { type: 'file', accept: 'application/json', onChange: importData, className: 'hidden' })),
-      h('button', { className: row + ' hover:text-loss', onClick: reset, title: 'Reset / reseed' }, h(Icon, { name: 'reset', size: 16, className: 'shrink-0 text-ink-500' }), lbl('Reset / reseed'))
+    return h('div', { className: 'px-2 pb-3 pt-2 border-t border-slate-100 flex flex-col gap-0.5' },
+      h('button', { className: row, onClick: exportData, title: 'Export data' }, h(Icon, { name: 'export', size: 16, className: 'shrink-0 text-slate-400' }), lbl('Export data')),
+      h('label', { className: row, title: 'Import data' }, h(Icon, { name: 'import', size: 16, className: 'shrink-0 text-slate-400' }), lbl('Import data'), h('input', { type: 'file', accept: 'application/json', onChange: importData, className: 'hidden' })),
+      h('button', { className: row + ' hover:text-loss hover:bg-loss/5', onClick: reset, title: 'Reset / reseed' }, h(Icon, { name: 'reset', size: 16, className: 'shrink-0 text-slate-400' }), lbl('Reset / reseed'))
     );
   }
 
@@ -170,12 +171,12 @@
   /* ---- Polished TopBar ---- */
   function TopBar(props) {
     var validAcc = props.ctx.accountId === 'all' || props.state.accounts.some(function (a) { return a.id === props.ctx.accountId; });
-    return h('header', { className: 'sticky top-0 z-30 flex items-center gap-3 px-4 sm:px-6 h-14 border-b border-slate-200 dark:border-ink-700 bg-white/90 dark:bg-ink-900/90 backdrop-blur-md' },
+    return h('header', { className: 'sticky top-0 z-30 flex items-center gap-3 px-4 sm:px-6 h-14 backdrop-blur-md', style:{background:'rgba(17,17,17,0.92)',borderBottom:'1px solid #212121'} },
       /* hamburger */
-      h('button', { className: 'lg:hidden w-8 h-8 grid place-items-center rounded-lg hover:bg-slate-100 dark:hover:bg-ink-800 trans text-slate-500 dark:text-slate-400', onClick: props.onMenu },
+      h('button', { className: 'lg:hidden w-8 h-8 grid place-items-center rounded-lg trans', style:{color:'#989898'}, onClick: props.onMenu },
         h(Icon, { name: 'menu', size: 18 })),
       /* page title */
-      h('h1', { className: 'text-[15px] font-bold tracking-tight' }, props.title),
+      h('h1', { className: 'text-[15px] font-extrabold tracking-tight text-[#f5f5f5]' }, props.title),
       /* right controls */
       h('div', { className: 'ml-auto flex items-center gap-2' },
         /* account */
@@ -185,7 +186,7 @@
             onChange: function (e) { props.onAccount(e.target.value); } },
             h('option', { value: 'all' }, 'All accounts'),
             props.state.accounts.map(function (a) { return h('option', { key: a.id, value: a.id }, a.name); })),
-          h('button', { className: 'w-7 h-7 grid place-items-center rounded-lg hover:bg-slate-100 dark:hover:bg-ink-800 trans text-slate-400 hover:text-slate-700 dark:hover:text-white', title: 'Manage accounts', onClick: props.onManageAccounts },
+          h('button', { className: 'w-7 h-7 grid place-items-center rounded-lg trans', style:{color:'#989898'}, title: 'Manage accounts', onClick: props.onManageAccounts },
             h(Icon, { name: 'gear', size: 14 }))),
         /* range */
         h(UI.Select, { className: 'tz-input py-1.5 text-xs min-w-[120px] hidden sm:block',
@@ -199,14 +200,14 @@
           h(UI.Select, { className: 'tz-input py-1.5 text-xs min-w-[90px]',
             value: props.curCode, onChange: function (e) { window.Currency.set(e.target.value); } },
             window.Currency.codes.map(function (c) { return h('option', { key: c, value: c }, window.Currency.meta[c].symbol + ' ' + c); })),
-          h('button', { className: 'w-7 h-7 grid place-items-center rounded-lg hover:bg-slate-100 dark:hover:bg-ink-800 trans text-slate-400 hover:text-slate-700 dark:hover:text-white', title: 'Exchange rates', onClick: props.onOpenRates },
+          h('button', { className: 'w-7 h-7 grid place-items-center rounded-lg trans', style:{color:'#989898'}, title: 'Exchange rates', onClick: props.onOpenRates },
             h(Icon, { name: 'gear', size: 14 }))),
         /* + Add Trade */
         h('button', { className: 'tz-btn tz-btn-primary flex items-center gap-1.5 py-2 px-3.5', onClick: props.onAdd },
-          h(Icon, { name: 'plus', size: 14, className: 'text-white' }),
-          h('span', { className: 'hidden sm:inline' }, 'Add Trade')),
+          h(Icon, { name: 'plus', size: 14, className: 'text-[#04150b]' }),
+          h('span', { className: 'hidden sm:inline text-[#04150b] font-extrabold' }, 'Add Trade')),
         /* theme */
-        h('button', { className: 'w-8 h-8 grid place-items-center rounded-lg hover:bg-slate-100 dark:hover:bg-ink-800 trans text-slate-400 hover:text-slate-700 dark:hover:text-white', title: 'Toggle theme', onClick: function () { window.Theme.toggle(); } },
+        h('button', { className: 'w-8 h-8 grid place-items-center rounded-lg trans', style:{color:'#989898'}, title: 'Toggle theme', onClick: function () { window.Theme.toggle(); } },
           h(Icon, { name: props.theme === 'light' ? 'sun' : 'moon', size: 16 }))
       )
     );
@@ -279,7 +280,7 @@
     }
     return h(UI.Modal, { title: 'Accounts', wide: true, onClose: props.onClose,
       footer: [h(UI.Button, { key: 'd', variant: 'primary', onClick: props.onClose }, 'Done')] },
-      h('p', { className: 'text-sm text-slate-500 dark:text-slate-400 mb-4' },
+      h('p', { className: 'text-sm text-[#989898] mb-4' },
         'Each account has its own trades, balance and stats. Pick one in the top bar to focus, or ', h('strong', null, 'All accounts'), ' for the combined view.'),
       h('div', { className: 'space-y-2 mb-5' },
         state.accounts.map(function (a) {
@@ -297,7 +298,7 @@
           }
           return h('div', { key: a.id, className: 'card-base p-3.5 flex items-center gap-3 flex-wrap' },
             h('div', { className: 'flex-1 min-w-[160px]' },
-              h('div', { className: 'font-semibold text-sm' }, a.name,
+              h('div', { className: 'font-semibold text-sm text-[#f5f5f5]' }, a.name,
                 a.broker ? h('span', { className: 'text-xs text-slate-400 font-normal ml-2' }, a.broker) : null),
               h('div', { className: 'text-xs text-slate-400 mt-0.5' },
                 'Start ' + Fmt.money(a.startingBalance) + ' · ' + trades.length + ' trade' + (trades.length === 1 ? '' : 's'))),
