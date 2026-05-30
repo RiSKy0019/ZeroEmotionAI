@@ -24,6 +24,7 @@
     gear:      '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="10" cy="10" r="2.5"/><path d="M10 3v1.5M10 15.5V17M3 10h1.5M15.5 10H17M5.1 5.1l1.1 1.1M13.8 13.8l1.1 1.1M5.1 14.9l1.1-1.1M13.8 6.2l1.1-1.1"/></svg>',
     plus:      '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 4v12M4 10h12"/></svg>',
     weekly:    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="14" height="13" rx="2"/><path d="M7 2v2M13 2v2M3 8h14"/><path d="M7 12h2M11 12h2M7 15h2"/></svg>',
+    chat:      '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h14a1 1 0 011 1v8a1 1 0 01-1 1H7l-4 2V5a1 1 0 011-1z"/><path d="M7 8h6M7 11h4"/></svg>',
   };
   function Icon(props) {
     return h('span', { className: window.cx('inline-flex items-center justify-center shrink-0', props.className), style: { width: props.size || 20, height: props.size || 20 }, dangerouslySetInnerHTML: { __html: ICONS[props.name] || '' } });
@@ -34,12 +35,13 @@
     ['trades',    'trades',    'Trades'],
     ['reports',   'reports',   'Reports'],
     ['insights',  'insights',  'AI Insights'],
+    ['chat',      'insights',  'AI Chat'],
     ['weekly',    'weekly',    'Weekly Summary'],
     ['notebook',  'notebook',  'Notebook'],
     ['playbooks', 'playbooks', 'Playbooks'],
     ['journal',   'journal',   'Journal']
   ];
-  var TITLES = { dashboard: 'Dashboard', trades: 'Trades', reports: 'Reports & Analytics', insights: 'AI Insights', weekly: 'Weekly Summary', notebook: 'Notebook', playbooks: 'Playbooks', journal: 'Journal & Review' };
+  var TITLES = { dashboard: 'Dashboard', trades: 'Trades', reports: 'Reports & Analytics', insights: 'AI Insights', chat: 'AI Chat', weekly: 'Weekly Summary', notebook: 'Notebook', playbooks: 'Playbooks', journal: 'Journal & Review' };
 
 
   function readHash() { var r = (location.hash || '').replace('#', ''); return TITLES[r] ? r : 'dashboard'; }

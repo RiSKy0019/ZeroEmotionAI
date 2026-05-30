@@ -62,6 +62,14 @@
     subscribe: function (fn) { curListeners.push(fn); return function () { curListeners = curListeners.filter(function (x) { return x !== fn; }); }; }
   };
 
+  /* ---------- OpenAI key store ---------- */
+  var AI_KEY_STORE = 'zea.openaiKey';
+  window.AIKey = {
+    get: function () { try { return localStorage.getItem(AI_KEY_STORE) || ''; } catch (e) { return ''; } },
+    set: function (k) { try { if (k) localStorage.setItem(AI_KEY_STORE, k); else localStorage.removeItem(AI_KEY_STORE); } catch (e) {} },
+    has: function () { return !!window.AIKey.get(); }
+  };
+
   /* ---------- Tiny event bus ---------- */
   var handlers = {};
   window.Bus = {
