@@ -109,34 +109,42 @@
       onMouseLeave: function () { props.onHover(false); },
       className: window.cx(
         'fixed inset-y-0 left-0 z-50 flex flex-col overflow-hidden',
-        'bg-white border-r border-slate-200',
-        'transition-[width,transform] duration-200 ease-out shadow-sm',
-        props.mobileOpen ? 'w-60 translate-x-0 shadow-lg' : 'w-60 -translate-x-full',
+        'transition-[width,transform] duration-200 ease-out',
+        props.mobileOpen ? 'w-60 translate-x-0' : 'w-60 -translate-x-full',
         'lg:translate-x-0', expanded ? 'lg:w-60' : 'lg:w-[68px]'
-      )},
+      ),
+      style: {
+        background: '#ffffff',
+        borderRight: '1px solid #e2e8f0',
+        boxShadow: expanded ? '4px 0 20px rgba(0,0,0,0.08)' : '2px 0 8px rgba(0,0,0,0.04)'
+      }},
       /* brand mark */
-      h('div', { className: 'flex items-center gap-3 px-4 pt-5 pb-4 border-b border-slate-100' },
+      h('div', { style: { display:'flex', alignItems:'center', gap:'12px', padding:'20px 16px 16px', borderBottom:'1px solid #f1f5f9' } },
         h('div', { className: 'w-9 h-9 shrink-0 rounded-xl grid place-items-center bg-gradient-to-br from-brand to-accentpink shadow-glow-sm' },
           h(Icon, { name: 'lightning', className: 'text-white', size: 18 })),
         h('div', { className: window.cx('transition-opacity duration-150 whitespace-nowrap overflow-hidden', expanded ? 'opacity-100' : 'opacity-0') },
-          h('div', { className: 'font-bold text-[15px] tracking-tight text-slate-800' }, 'ZeroEmotionAI'),
-          h('div', { className: 'text-[11px] mt-0.5 text-slate-400' }, 'Plan \u00b7 Review \u00b7 Improve'))),
+          h('div', { style: { fontWeight: 700, fontSize: '15px', letterSpacing: '-0.01em', color: '#1e293b' } }, 'ZeroEmotionAI'),
+          h('div', { style: { fontSize: '11px', marginTop: '2px', color: '#94a3b8' } }, 'Plan \u00b7 Review \u00b7 Improve'))),
       /* nav items */
-      h('nav', { className: 'flex flex-col gap-0.5 flex-1 px-2 py-3' },
+      h('nav', { style: { display:'flex', flexDirection:'column', gap:'2px', flex:1, padding:'12px 8px' } },
         NAV.map(function (n) {
           var active = props.route === n[0];
           return h('button', {
             key: n[0], title: n[2],
             onClick: function () { props.go(n[0]); },
-            className: window.cx(
-              'flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-left w-full trans-colors',
-              active
-                ? 'bg-brand/10 text-brand-600 ring-1 ring-brand/20'
-                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800')
+            style: Object.assign({
+              display: 'flex', alignItems: 'center', gap: '12px',
+              padding: '10px 12px', borderRadius: '12px',
+              fontSize: '13px', fontWeight: 500, textAlign: 'left',
+              width: '100%', cursor: 'pointer', border: 'none',
+              transition: 'background 0.15s, color 0.15s'
+            }, active
+              ? { background: 'rgba(124,92,255,0.10)', color: '#6b4cf0', boxShadow: 'inset 0 0 0 1px rgba(124,92,255,0.20)' }
+              : { background: 'transparent', color: '#64748b' })
           },
-            h(Icon, { name: n[1], size: 18, className: window.cx('shrink-0', active ? 'text-brand-500' : 'text-slate-400') }),
+            h(Icon, { name: n[1], size: 18, style: { flexShrink: 0, color: active ? '#7c5cff' : '#94a3b8' } }),
             h('span', { className: window.cx('whitespace-nowrap transition-opacity duration-150 sidebar-item-label', expanded ? 'opacity-100' : 'opacity-0') }, n[2]),
-            active ? h('span', { className: window.cx('ml-auto h-4 w-1 rounded-full bg-brand shrink-0 transition-opacity', expanded ? 'opacity-100' : 'opacity-0') }) : null
+            active ? h('span', { className: window.cx('ml-auto shrink-0 transition-opacity', expanded ? 'opacity-100' : 'opacity-0'), style: { width:'4px', height:'16px', borderRadius:'4px', background:'#7c5cff' } }) : null
           );
         })),
       /* data tools */
@@ -158,12 +166,22 @@
       rd.readAsText(file);
     }
     function reset() { if (window.confirm('Reset to sample data? Export first to keep your data.')) { Store.reset(); window.toast('Reset done', 'ok'); } }
-    var row = 'flex items-center gap-3 px-3 py-2 rounded-xl text-[12px] font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-800 trans-colors cursor-pointer w-full';
+    var rowStyle = { display:'flex', alignItems:'center', gap:'12px', padding:'8px 12px', borderRadius:'10px', fontSize:'12px', fontWeight:500, color:'#64748b', cursor:'pointer', border:'none', background:'transparent', width:'100%', transition:'background 0.15s, color 0.15s' };
     var lbl = function (t) { return h('span', { className: window.cx('whitespace-nowrap sidebar-item-label transition-opacity duration-150', expanded ? 'opacity-100' : 'opacity-0') }, t); };
-    return h('div', { className: 'px-2 pb-3 pt-2 border-t border-slate-100 flex flex-col gap-0.5' },
-      h('button', { className: row, onClick: exportData, title: 'Export data' }, h(Icon, { name: 'export', size: 16, className: 'shrink-0 text-slate-400' }), lbl('Export data')),
-      h('label', { className: row, title: 'Import data' }, h(Icon, { name: 'import', size: 16, className: 'shrink-0 text-slate-400' }), lbl('Import data'), h('input', { type: 'file', accept: 'application/json', onChange: importData, className: 'hidden' })),
-      h('button', { className: row + ' hover:text-loss hover:bg-loss/5', onClick: reset, title: 'Reset / reseed' }, h(Icon, { name: 'reset', size: 16, className: 'shrink-0 text-slate-400' }), lbl('Reset / reseed'))
+    return h('div', { style: { padding:'8px 8px 12px', borderTop:'1px solid #f1f5f9', display:'flex', flexDirection:'column', gap:'2px' } },
+      h('button', { style: rowStyle, onClick: exportData, title: 'Export data',
+        onMouseEnter: function(e){ e.currentTarget.style.background='#f8fafc'; e.currentTarget.style.color='#334155'; },
+        onMouseLeave: function(e){ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='#64748b'; } },
+        h(Icon, { name: 'export', size: 16, style:{ flexShrink:0, color:'#94a3b8' } }), lbl('Export data')),
+      h('label', { style: Object.assign({}, rowStyle, { cursor:'pointer' }), title: 'Import data',
+        onMouseEnter: function(e){ e.currentTarget.style.background='#f8fafc'; e.currentTarget.style.color='#334155'; },
+        onMouseLeave: function(e){ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='#64748b'; } },
+        h(Icon, { name: 'import', size: 16, style:{ flexShrink:0, color:'#94a3b8' } }), lbl('Import data'),
+        h('input', { type: 'file', accept: 'application/json', onChange: importData, className: 'hidden' })),
+      h('button', { style: rowStyle, onClick: reset, title: 'Reset / reseed',
+        onMouseEnter: function(e){ e.currentTarget.style.background='#fff5f5'; e.currentTarget.style.color='#ef4444'; },
+        onMouseLeave: function(e){ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='#64748b'; } },
+        h(Icon, { name: 'reset', size: 16, style:{ flexShrink:0, color:'#94a3b8' } }), lbl('Reset / reseed'))
     );
   }
 
