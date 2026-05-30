@@ -76,7 +76,7 @@
       openTradeForm: openTradeForm, openCsv: openCsv, openTradingView: openTradingView };
     var View = window.Views[cap(route)] || window.Views.Dashboard;
 
-    return h('div', { className: 'flex min-h-screen bg-slate-50 dark:bg-ink-950' },
+    return h('div', { className: 'flex min-h-screen bg-[#f7f7f7] dark:bg-ink-950' },
       sidebarS[0] ? h('div', { className: 'fixed inset-0 bg-black/50 z-40 lg:hidden', onClick: function () { sidebarS[1](false); } }) : null,
       h(Sidebar, { route: route, go: go, mobileOpen: sidebarS[0], hover: hoverS[0],
         onHover: function (v) { hoverS[1](v); } }),
@@ -115,15 +115,15 @@
       ),
       style: {
         background: '#ffffff',
-        borderRight: '1px solid #e2e8f0',
-        boxShadow: expanded ? '4px 0 20px rgba(0,0,0,0.08)' : '2px 0 8px rgba(0,0,0,0.04)'
+        borderRight: '1px solid #e8e8e8',
+        boxShadow: expanded ? '4px 0 16px rgba(0,0,0,0.06)' : '2px 0 6px rgba(0,0,0,0.03)'
       }},
       /* brand mark */
       h('div', { style: { display:'flex', alignItems:'center', gap:'12px', padding:'20px 16px 16px', borderBottom:'1px solid #f1f5f9' } },
-        h('div', { className: 'w-9 h-9 shrink-0 rounded-xl grid place-items-center bg-gradient-to-br from-brand to-accentpink shadow-glow-sm' },
-          h(Icon, { name: 'lightning', className: 'text-white', size: 18 })),
+        h('div', { className: 'w-9 h-9 shrink-0 rounded-xl grid place-items-center' },
+          h(Icon, { name: 'lightning', style: { color: '#fff' }, size: 18 })),
         h('div', { className: window.cx('transition-opacity duration-150 whitespace-nowrap overflow-hidden', expanded ? 'opacity-100' : 'opacity-0') },
-          h('div', { style: { fontWeight: 700, fontSize: '15px', letterSpacing: '-0.01em', color: '#1e293b' } }, 'ZeroEmotionAI'),
+          h('div', { style: { fontFamily: 'Urbanist, Inter, sans-serif', fontWeight: 800, fontSize: '15px', letterSpacing: '-0.01em', color: '#1b1b1b' } }, 'ZeroEmotionAI'),
           h('div', { style: { fontSize: '11px', marginTop: '2px', color: '#94a3b8' } }, 'Plan \u00b7 Review \u00b7 Improve'))),
       /* nav items */
       h('nav', { style: { display:'flex', flexDirection:'column', gap:'2px', flex:1, padding:'12px 8px' } },
@@ -134,17 +134,17 @@
             onClick: function () { props.go(n[0]); },
             style: Object.assign({
               display: 'flex', alignItems: 'center', gap: '12px',
-              padding: '10px 12px', borderRadius: '12px',
-              fontSize: '13px', fontWeight: 500, textAlign: 'left',
+              padding: '10px 12px', borderRadius: '999px',
+              fontSize: '13px', fontWeight: 600, textAlign: 'left',
               width: '100%', cursor: 'pointer', border: 'none',
               transition: 'background 0.15s, color 0.15s'
             }, active
-              ? { background: 'rgba(124,92,255,0.10)', color: '#6b4cf0', boxShadow: 'inset 0 0 0 1px rgba(124,92,255,0.20)' }
-              : { background: 'transparent', color: '#64748b' })
+              ? { background: '#1b1b1b', color: '#fff' }
+              : { background: 'transparent', color: '#666' })
           },
-            h(Icon, { name: n[1], size: 18, style: { flexShrink: 0, color: active ? '#7c5cff' : '#94a3b8' } }),
+            h(Icon, { name: n[1], size: 18, style: { flexShrink: 0, color: active ? '#00E096' : '#aaa' } }),
             h('span', { className: window.cx('whitespace-nowrap transition-opacity duration-150 sidebar-item-label', expanded ? 'opacity-100' : 'opacity-0') }, n[2]),
-            active ? h('span', { className: window.cx('ml-auto shrink-0 transition-opacity', expanded ? 'opacity-100' : 'opacity-0'), style: { width:'4px', height:'16px', borderRadius:'4px', background:'#7c5cff' } }) : null
+            active ? h('span', { className: window.cx('ml-auto shrink-0 transition-opacity', expanded ? 'opacity-100' : 'opacity-0'), style: { width:'5px', height:'5px', borderRadius:'50%', background:'#00E096' } }) : null
           );
         })),
       /* data tools */
@@ -166,21 +166,21 @@
       rd.readAsText(file);
     }
     function reset() { if (window.confirm('Reset to sample data? Export first to keep your data.')) { Store.reset(); window.toast('Reset done', 'ok'); } }
-    var rowStyle = { display:'flex', alignItems:'center', gap:'12px', padding:'8px 12px', borderRadius:'10px', fontSize:'12px', fontWeight:500, color:'#64748b', cursor:'pointer', border:'none', background:'transparent', width:'100%', transition:'background 0.15s, color 0.15s' };
+    var rowStyle = { display:'flex', alignItems:'center', gap:'12px', padding:'8px 12px', borderRadius:'999px', fontSize:'12px', fontWeight:600, color:'#888', cursor:'pointer', border:'none', background:'transparent', width:'100%', transition:'background 0.15s, color 0.15s' };
     var lbl = function (t) { return h('span', { className: window.cx('whitespace-nowrap sidebar-item-label transition-opacity duration-150', expanded ? 'opacity-100' : 'opacity-0') }, t); };
     return h('div', { style: { padding:'8px 8px 12px', borderTop:'1px solid #f1f5f9', display:'flex', flexDirection:'column', gap:'2px' } },
       h('button', { style: rowStyle, onClick: exportData, title: 'Export data',
-        onMouseEnter: function(e){ e.currentTarget.style.background='#f8fafc'; e.currentTarget.style.color='#334155'; },
-        onMouseLeave: function(e){ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='#64748b'; } },
+        onMouseEnter: function(e){ e.currentTarget.style.background='#f5f5f5'; e.currentTarget.style.color='#1b1b1b'; },
+        onMouseLeave: function(e){ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='#888'; } },
         h(Icon, { name: 'export', size: 16, style:{ flexShrink:0, color:'#94a3b8' } }), lbl('Export data')),
       h('label', { style: Object.assign({}, rowStyle, { cursor:'pointer' }), title: 'Import data',
-        onMouseEnter: function(e){ e.currentTarget.style.background='#f8fafc'; e.currentTarget.style.color='#334155'; },
-        onMouseLeave: function(e){ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='#64748b'; } },
+        onMouseEnter: function(e){ e.currentTarget.style.background='#f5f5f5'; e.currentTarget.style.color='#1b1b1b'; },
+        onMouseLeave: function(e){ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='#888'; } },
         h(Icon, { name: 'import', size: 16, style:{ flexShrink:0, color:'#94a3b8' } }), lbl('Import data'),
         h('input', { type: 'file', accept: 'application/json', onChange: importData, className: 'hidden' })),
       h('button', { style: rowStyle, onClick: reset, title: 'Reset / reseed',
-        onMouseEnter: function(e){ e.currentTarget.style.background='#fff5f5'; e.currentTarget.style.color='#ef4444'; },
-        onMouseLeave: function(e){ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='#64748b'; } },
+        onMouseEnter: function(e){ e.currentTarget.style.background='#fff0f0'; e.currentTarget.style.color='#f6465d'; },
+        onMouseLeave: function(e){ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='#888'; } },
         h(Icon, { name: 'reset', size: 16, style:{ flexShrink:0, color:'#94a3b8' } }), lbl('Reset / reseed'))
     );
   }
@@ -190,7 +190,7 @@
   /* ---- Light TopBar (always white, immune to dark mode) ---- */
   var TB = {
     /* base styles applied inline so dark mode cannot override */
-    header: { background: '#ffffff', borderBottom: '1px solid #e2e8f0', position: 'sticky', top: 0, zIndex: 30,
+    header: { background: '#ffffff', borderBottom: '1px solid #e8e8e8', position: 'sticky', top: 0, zIndex: 30,
               display: 'flex', alignItems: 'center', gap: '12px', padding: '0 24px', height: '56px',
               boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
     title:  { fontSize: '15px', fontWeight: 800, letterSpacing: '-0.01em', color: '#1e293b', margin: 0 },
