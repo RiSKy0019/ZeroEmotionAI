@@ -47,15 +47,33 @@
     return ref;
   }
 
-  function baseScales(p, horizontal) {
-    return {
+  // value formatting that follows the active display currency
+  function tickFmt(v, fmt) {
+    if (fmt === 'pct') return v + '%';
+    if (fmt === 'plain') return Number(v).toLocaleString('en-US');
+    return window.Fmt.moneyShort(v);
+  }
+  function tipFmt(v, fmt) {
+    if (fmt === 'pct') return '  ' + Number(v).toFixed(1) + '%';
+    if (fmt === 'plain') return '  ' + Number(v).toLocaleString('en-US');
+    return '  ' + window.Fmt.money(v);
+  }
+
+  function baseScales(p, opts) {
+    opts = opts || {};
+    var valueAxis = opts.horizontal ? 'x' : 'y';
+    var fmt = opts.fmt || 'money';
+    var s = {
       x: { grid: { color: p.grid, drawTicks: false }, ticks: { color: p.tick, font: { family: FONT, size: 11 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, border: { display: false } },
       y: { grid: { color: p.grid, drawTicks: false }, ticks: { color: p.tick, font: { family: FONT, size: 11 } }, border: { display: false } }
     };
+    s[valueAxis].ticks.callback = function (v) { return tickFmt(v, fmt); };
+    return s;
   }
 
   function Line(props) {
     var theme = window.useTheme();
+    var currency = window.useCurrency();
     var height = props.height || 280;
     if (!window.Chart) return h(Fallback, { height: height });
     var p = palette(theme);
@@ -68,15 +86,16 @@
         type: 'line',
         data: { labels: props.labels, datasets: [{ data: props.data, borderColor: color, backgroundColor: grad, fill: true, tension: 0.25, borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, pointHoverBackgroundColor: color }] },
         options: { responsive: true, maintainAspectRatio: false, interaction: { intersect: false, mode: 'index' },
-          plugins: { legend: { display: false }, tooltip: Object.assign(tip(p), { callbacks: { label: function (c) { return '  $' + Number(c.parsed.y).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); } } }) },
-          scales: baseScales(p) }
+          plugins: { legend: { display: false }, tooltip: Object.assign(tip(p), { callbacks: { label: function (c) { return tipFmt(c.parsed.y, 'money'); } } }) },
+          scales: baseScales(p, { fmt: 'money' }) }
       });
-    }, [JSON.stringify(props.labels), JSON.stringify(props.data), theme, color], height);
+    }, [JSON.stringify(props.labels), JSON.stringify(props.data), theme, color, currency], height);
     return h('div', { className: 'chart-host', style: { height: height + 'px' } }, h('canvas', { ref: ref }));
   }
 
   function Bars(props) {
     var theme = window.useTheme();
+    var currency = window.useCurrency();
     var height = props.height || 260;
     if (!window.Chart) return h(Fallback, { height: height });
     var p = palette(theme);
@@ -87,14 +106,11 @@
         data: { labels: props.labels, datasets: [{ data: props.data, backgroundColor: colors, borderRadius: 6, borderSkipped: false, maxBarThickness: 44 }] },
         options: { responsive: true, maintainAspectRatio: false, indexAxis: props.horizontal ? 'y' : 'x',
           plugins: { legend: { display: false }, tooltip: Object.assign(tip(p), { callbacks: { label: function (c) {
-            var v = props.horizontal ? c.parsed.x : c.parsed.y;
-            if (props.fmt === 'pct') return '  ' + Number(v).toFixed(1) + '%';
-            if (props.fmt === 'plain') return '  ' + Number(v).toLocaleString('en-US');
-            return '  $' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            return tipFmt(props.horizontal ? c.parsed.x : c.parsed.y, props.fmt);
           } } }) },
-          scales: baseScales(p, props.horizontal) }
+          scales: baseScales(p, { horizontal: props.horizontal, fmt: props.fmt }) }
       });
-    }, [JSON.stringify(props.labels), JSON.stringify(props.data), theme, props.horizontal, props.fmt, props.color], height);
+    }, [JSON.stringify(props.labels), JSON.stringify(props.data), theme, props.horizontal, props.fmt, props.color, currency], height);
     return h('div', { className: 'chart-host', style: { height: height + 'px' } }, h('canvas', { ref: ref }));
   }
 

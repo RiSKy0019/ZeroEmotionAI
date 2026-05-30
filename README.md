@@ -16,6 +16,7 @@ All data is stored locally in your browser (`localStorage`). Nothing is uploaded
 - **Playbooks** — Define your strategies and rules, and see per‑strategy stats (net P&L, win rate, profit factor, trade count).
 - **Journal & Review** — A discipline score, “what your mistakes cost you” breakdown, and a daily pre‑market / review / lesson log.
 - **Light & dark themes** — Toggle in the top bar; your choice is remembered.
+- **Display currency** — View all P&L and money in USD, EUR, GBP, INR, JPY, AUD or CAD. Trades are stored in USD and converted for display only; exchange rates are editable (no live feed).
 - **Backup** — Export/import your whole journal as JSON; reset to fresh sample data anytime.
 
 The app ships with realistic sample data so you can explore immediately.

@@ -31,6 +31,37 @@
     subscribe: function (fn) { themeListeners.push(fn); return function () { themeListeners = themeListeners.filter(function (x) { return x !== fn; }); }; }
   };
 
+  /* ---------- Currency (display only — trades are stored in USD) ---------- */
+  var CUR_KEY = 'zea.currency', RATES_KEY = 'zea.rates';
+  var CUR_META = {
+    USD: { symbol: '$', locale: 'en-US', dec: 2, rate: 1 },
+    EUR: { symbol: '\u20AC', locale: 'en-IE', dec: 2, rate: 0.92 },
+    GBP: { symbol: '\u00A3', locale: 'en-GB', dec: 2, rate: 0.79 },
+    INR: { symbol: '\u20B9', locale: 'en-IN', dec: 2, rate: 83.2 },
+    JPY: { symbol: '\u00A5', locale: 'ja-JP', dec: 0, rate: 157 },
+    AUD: { symbol: 'A$', locale: 'en-AU', dec: 2, rate: 1.52 },
+    CAD: { symbol: 'C$', locale: 'en-CA', dec: 2, rate: 1.37 }
+  };
+  var curListeners = [];
+  function getCurCode() { try { var c = localStorage.getItem(CUR_KEY); return CUR_META[c] ? c : 'USD'; } catch (e) { return 'USD'; } }
+  function getRates() {
+    var r = {}; Object.keys(CUR_META).forEach(function (c) { r[c] = CUR_META[c].rate; });
+    try { var saved = JSON.parse(localStorage.getItem(RATES_KEY) || '{}'); Object.keys(saved).forEach(function (c) { if (CUR_META[c] && isFinite(saved[c]) && saved[c] > 0) r[c] = saved[c]; }); } catch (e) {}
+    return r;
+  }
+  function curGet() {
+    var code = getCurCode(), m = CUR_META[code], rates = getRates();
+    return { code: code, symbol: m.symbol, locale: m.locale, dec: m.dec, rate: rates[code] || 1 };
+  }
+  function curEmit() { curListeners.forEach(function (fn) { try { fn(); } catch (e) {} }); }
+  window.Currency = {
+    get: curGet, getRates: getRates, codes: Object.keys(CUR_META), meta: CUR_META,
+    set: function (code) { if (CUR_META[code]) { try { localStorage.setItem(CUR_KEY, code); } catch (e) {} curEmit(); } },
+    setRate: function (code, val) { var rates = getRates(); if (isFinite(Number(val)) && Number(val) > 0) rates[code] = Number(val); try { localStorage.setItem(RATES_KEY, JSON.stringify(rates)); } catch (e) {} curEmit(); },
+    resetRates: function () { try { localStorage.removeItem(RATES_KEY); } catch (e) {} curEmit(); },
+    subscribe: function (fn) { curListeners.push(fn); return function () { curListeners = curListeners.filter(function (x) { return x !== fn; }); }; }
+  };
+
   /* ---------- Tiny event bus ---------- */
   var handlers = {};
   window.Bus = {

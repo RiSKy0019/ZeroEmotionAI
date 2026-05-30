@@ -17,6 +17,7 @@
   function App() {
     var state = window.useStore();
     var theme = window.useTheme();
+    var currency = window.useCurrency();
     var routeS = useState(readHash()); var route = routeS[0];
     var accS = useState('all'); var rangeS = useState('all');
     var sidebarS = useState(false); // mobile open
@@ -33,6 +34,7 @@
     function openTradeForm(trade) { modalS[1]({ type: 'trade', trade: trade || null }); }
     function openCsv() { modalS[1]({ type: 'csv', trade: null }); }
     function openTradingView() { modalS[1]({ type: 'tv', trade: null }); }
+    function openCurrency() { modalS[1]({ type: 'currency', trade: null }); }
     function closeModal() { modalS[1]({ type: null, trade: null }); }
 
     var viewProps = { state: state, ctx: ctx, go: go, onAddTrade: function () { openTradeForm(); }, onEditTrade: openTradeForm, openTradeForm: openTradeForm, openCsv: openCsv, openTradingView: openTradingView };
@@ -44,15 +46,16 @@
       h(Sidebar, { route: route, go: go, open: sidebarS[0] }),
       // main
       h('div', { className: 'flex-1 min-w-0 flex flex-col' },
-        h(TopBar, { title: TITLES[route], state: state, ctx: ctx, theme: theme,
+        h(TopBar, { title: TITLES[route], state: state, ctx: ctx, theme: theme, curCode: window.Currency.get().code,
           onMenu: function () { sidebarS[1](!sidebarS[0]); },
           onAccount: function (v) { accS[1](v); }, onRange: function (v) { rangeS[1](v); },
-          onAdd: function () { openTradeForm(); } }),
+          onAdd: function () { openTradeForm(); }, onOpenRates: openCurrency }),
         h('main', { className: 'p-4 sm:p-6 max-w-[1500px] w-full mx-auto' }, h(View, viewProps))),
       // modals
       modal.type === 'trade' ? h(window.Views.TradeForm, { trade: modal.trade, onClose: closeModal }) : null,
       modal.type === 'csv' ? h(window.Views.ImportCsv, { ctx: ctx, onClose: closeModal }) : null,
       modal.type === 'tv' ? h(window.Views.ImportTradingView, { ctx: ctx, onClose: closeModal }) : null,
+      modal.type === 'currency' ? h(CurrencySettings, { onClose: closeModal }) : null,
       h(UI.ToastHost, null)
     );
   }
@@ -115,9 +118,41 @@
           h(UI.Select, { className: 'min-w-[100px] py-1.5', value: props.ctx.range, onChange: function (e) { props.onRange(e.target.value); } },
             h('option', { value: 'all' }, 'All time'), h('option', { value: 'ytd' }, 'Year to date'),
             h('option', { value: '30' }, 'Last 30 days'), h('option', { value: '7' }, 'Last 7 days'))),
+        h('div', { className: 'flex flex-col gap-1' },
+          h('span', { className: 'text-[10px] uppercase tracking-wide text-slate-400 hidden sm:block' }, 'Currency'),
+          h('div', { className: 'flex items-center gap-1' },
+            h(UI.Select, { className: 'min-w-[82px] py-1.5', value: props.curCode, onChange: function (e) { window.Currency.set(e.target.value); } },
+              window.Currency.codes.map(function (c) { return h('option', { key: c, value: c }, window.Currency.meta[c].symbol + ' ' + c); })),
+            h('button', { className: 'text-slate-400 hover:text-slate-700 dark:hover:text-white text-sm px-1.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-ink-700', title: 'Edit exchange rates', onClick: props.onOpenRates }, '\u2699'))),
         h(UI.Button, { variant: 'primary', className: 'whitespace-nowrap', onClick: props.onAdd }, '+ Add Trade'),
         h('button', { className: 'text-xl px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-ink-700', title: 'Toggle theme', onClick: function () { window.Theme.toggle(); } }, props.theme === 'light' ? '☀️' : '🌙'))
     );
+  }
+
+  function CurrencySettings(props) {
+    window.useCurrency(); // re-render on rate change
+    var rates = window.Currency.getRates();
+    var active = window.Currency.get().code;
+    return h(UI.Modal, { title: 'Currency & exchange rates', onClose: props.onClose,
+      footer: [
+        h(UI.Button, { key: 'r', variant: 'ghost', onClick: function () { window.Currency.resetRates(); window.toast('Rates reset to defaults', 'ok'); } }, 'Reset rates'),
+        h(UI.Button, { key: 'd', variant: 'primary', onClick: props.onClose }, 'Done')
+      ] },
+      h('p', { className: 'text-sm text-slate-500 dark:text-slate-400 mb-1' }, 'Trades are stored in ', h('strong', null, 'USD'), ' and converted for display only — the underlying values never change.'),
+      h('p', { className: 'text-xs text-slate-400 mb-4' }, 'Rates are manual (no live feed). Set each rate to how many units equal 1 USD, then pick your currency in the top bar.'),
+      h('div', { className: 'space-y-2' },
+        window.Currency.codes.map(function (code) {
+          var meta = window.Currency.meta[code];
+          return h('div', { key: code, className: window.cx('flex items-center gap-3 rounded-xl px-3 py-2 border', code === active ? 'border-brand/40 bg-brand/5' : 'border-slate-200 dark:border-ink-600') },
+            h('div', { className: 'w-24 font-semibold' }, meta.symbol + ' ' + code),
+            code === 'USD'
+              ? h('div', { className: 'text-sm text-slate-400' }, 'base currency (1.00)')
+              : h('div', { className: 'flex items-center gap-2' },
+                  h('span', { className: 'text-xs text-slate-400' }, '1 USD ='),
+                  h(UI.Input, { type: 'number', step: 'any', className: 'w-32', defaultValue: rates[code],
+                    onChange: function (e) { window.Currency.setRate(code, e.target.value); } }),
+                  h('span', { className: 'text-xs text-slate-400' }, code)));
+        })));
   }
 
   // mount

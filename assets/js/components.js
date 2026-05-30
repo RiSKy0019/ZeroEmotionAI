@@ -13,6 +13,13 @@
     return t[0];
   };
 
+  /* ---------- currency hook (re-renders on currency / rate change) ---------- */
+  window.useCurrency = function () {
+    var c = useState(window.Currency.get().code);
+    useEffect(function () { return window.Currency.subscribe(function () { c[1](window.Currency.get().code + ':' + window.Currency.get().rate); }); }, []);
+    return c[0];
+  };
+
   /* shared class fragments */
   var CARD = 'bg-white dark:bg-ink-800 border border-slate-200 dark:border-ink-600 rounded-2xl';
   var INPUT = 'w-full bg-slate-50 dark:bg-ink-900 border border-slate-200 dark:border-ink-600 rounded-xl px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 transition';

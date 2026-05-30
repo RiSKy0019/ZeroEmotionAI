@@ -6,18 +6,20 @@
 
   function money(n, opts) {
     opts = opts || {};
-    var num = Number(n) || 0;
+    var cur = window.Currency ? window.Currency.get() : { symbol: '$', rate: 1, locale: 'en-US', dec: 2 };
+    var num = (Number(n) || 0) * cur.rate;
     var sign = num < 0 ? '-' : (opts.plus && num > 0 ? '+' : '');
-    var abs = Math.abs(num).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    return sign + '$' + abs;
+    var abs = Math.abs(num).toLocaleString(cur.locale, { minimumFractionDigits: cur.dec, maximumFractionDigits: cur.dec });
+    return sign + cur.symbol + abs;
   }
   function moneyShort(n) {
-    var num = Number(n) || 0;
+    var cur = window.Currency ? window.Currency.get() : { symbol: '$', rate: 1 };
+    var num = (Number(n) || 0) * cur.rate;
     var sign = num < 0 ? '-' : '';
     var abs = Math.abs(num);
-    if (abs >= 1e6) return sign + '$' + (abs / 1e6).toFixed(2) + 'M';
-    if (abs >= 1e3) return sign + '$' + (abs / 1e3).toFixed(1) + 'k';
-    return sign + '$' + abs.toFixed(0);
+    if (abs >= 1e6) return sign + cur.symbol + (abs / 1e6).toFixed(2) + 'M';
+    if (abs >= 1e3) return sign + cur.symbol + (abs / 1e3).toFixed(1) + 'k';
+    return sign + cur.symbol + abs.toFixed(0);
   }
   function pct(n, d) { return (Number(n) || 0).toFixed(d == null ? 1 : d) + '%'; }
   function num(n, d) {
