@@ -91,13 +91,46 @@
         lessons: 'Hard stop after 2 losses. Step away from the desk for 15 minutes.' }
     ];
 
+    var notes = [
+      { id: uid('nte'), type: 'daily', title: 'Pre-market plan — ' + iso(today),
+        date: iso(today), tags: ['pre-market', 'NQ'], tradeIds: [],
+        sections: [
+          { heading: 'Market bias', body: 'CPI came in hot. Short bias on NQ unless we hold overnight highs. Key level: 18,520 — above is long, below is short.' },
+          { heading: 'Setups to watch', body: '1. ORB break of the 9:45 range with volume.\n2. VWAP reclaim on ES if we gap down and hold.' },
+          { heading: 'Rules for today', body: '- Max 3 trades\n- Stop after 2 losses\n- No trades after 11:30 ET' },
+          { heading: 'Mental state', body: 'Feeling focused. Slept well. No distractions today.' }
+        ], screenshots: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      { id: uid('nte'), type: 'weekly', title: 'Weekly Review — W' + String(Math.ceil(today.getDate() / 7)),
+        date: iso(new Date(today.getTime() - 2 * 86400000)), tags: ['weekly-review'], tradeIds: [],
+        sections: [
+          { heading: 'What went well', body: 'Stuck to my max-loss rule every day. Best trade was the NQ ORB on Wednesday — clean entry, held to target.' },
+          { heading: 'What went wrong', body: 'Tuesday afternoon was a disaster. Traded past my cutoff and took two revenge trades.' },
+          { heading: 'Key lesson', body: 'The 11:30 cutoff is non-negotiable. Every late trade this week lost. Adding a phone alarm.' },
+          { heading: 'Focus for next week', body: 'Reduce size on Mondays. Work on patience — let setups develop fully.' }
+        ], screenshots: [], createdAt: new Date(today.getTime() - 2 * 86400000).toISOString(), updatedAt: new Date(today.getTime() - 2 * 86400000).toISOString() },
+      { id: uid('nte'), type: 'trade-note', title: 'NQ ORB Analysis',
+        date: iso(new Date(today.getTime() - 5 * 86400000)), tags: ['NQ', 'ORB', 'analysis'], tradeIds: [],
+        sections: [
+          { heading: 'Setup', body: 'Classic 15-min ORB. Range formed between 18,510 and 18,540. Volume surged on the upside break at 9:47.' },
+          { heading: 'Entry and management', body: 'Long at 18,545 on the retest. Stop at 18,505. Scaled half at 18,590, moved stop to breakeven.' },
+          { heading: 'What I did right', body: 'Waited for the retest instead of chasing the break. Mechanical execution, no emotion.' },
+          { heading: 'What to improve', body: 'Target was conservative — move went to 18,640. Trail more aggressively after 1R next time.' }
+        ], screenshots: [], createdAt: new Date(today.getTime() - 5 * 86400000).toISOString(), updatedAt: new Date(today.getTime() - 5 * 86400000).toISOString() },
+      { id: uid('nte'), type: 'general', title: 'Trading rules and principles',
+        date: iso(new Date(today.getTime() - 14 * 86400000)), tags: ['rules', 'mindset'], tradeIds: [],
+        sections: [
+          { heading: 'Core rules', body: '1. Never risk more than 1% per trade.\n2. No trades in the first 5 minutes.\n3. Hard stop after 2 losses.\n4. Pre-market plan every morning.\n5. Review every trade end of day.' },
+          { heading: 'Mindset reminders', body: 'Focus on process, not P&L. A well-executed losing trade beats a poorly-executed winner. The market will always be there tomorrow.' }
+        ], screenshots: [], createdAt: new Date(today.getTime() - 14 * 86400000).toISOString(), updatedAt: new Date(today.getTime() - 14 * 86400000).toISOString() }
+    ];
+
     return {
       meta: { v: 1, createdAt: new Date().toISOString() },
       accounts: [
         { id: accMain, name: 'Main Account', broker: 'Interactive Brokers', startingBalance: 25000 },
         { id: accProp, name: 'Prop — 50K Eval', broker: 'TopStep', startingBalance: 50000 }
       ],
-      trades: trades, playbooks: playbooks, journal: journal
+      trades: trades, playbooks: playbooks, journal: journal, notes: notes
     };
   };
 })();

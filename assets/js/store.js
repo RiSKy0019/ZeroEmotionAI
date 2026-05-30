@@ -25,10 +25,10 @@
   function empty() {
     return { meta: { v: 1, createdAt: new Date().toISOString() },
       accounts: [{ id: uid('acc'), name: 'Main Account', broker: 'Manual', startingBalance: 25000 }],
-      trades: [], playbooks: [], journal: [] };
+      trades: [], playbooks: [], journal: [], notes: [] };
   }
   function ensure(s) {
-    ['accounts', 'trades', 'playbooks', 'journal'].forEach(function (k) { if (!Array.isArray(s[k])) s[k] = []; });
+    ['accounts', 'trades', 'playbooks', 'journal', 'notes'].forEach(function (k) { if (!Array.isArray(s[k])) s[k] = []; });
     if (!s.meta) s.meta = { v: 1, createdAt: new Date().toISOString() };
     return s;
   }
