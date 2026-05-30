@@ -65,7 +65,7 @@
         : h(UI.Card, { className: 'overflow-hidden' }, h('div', { className: 'overflow-x-auto' },
             h('table', { className: 'w-full text-sm min-w-[920px]' },
               h('thead', null, h('tr', { className: 'text-left text-[11px] uppercase tracking-wide text-slate-400 bg-slate-50 dark:bg-ink-750' },
-                th('Date', 'date'), th('Symbol', 'symbol'), th('Side'), th('Setup'), th('Entry'), th('Exit'), th('Qty'), th('P&L', 'pnl'), th('R', 'r'), th('Result'), th('Tags'), th(''))),
+                th('Date', 'date'), th('Symbol', 'symbol'), th('Side'), th('Setup'), th('Entry'), th('Exit'), th('Qty'), th('Hold'), th('P&L', 'pnl'), th('R', 'r'), th('Result'), th('Tags'), th(''))),
               h('tbody', null, rows.map(function (t) { return h(Row, { key: t.id, t: t, onEdit: props.openTradeForm }); })))))
     );
   }
@@ -81,6 +81,7 @@
       h('td', { className: 'px-3 text-right tabular-nums' }, isFinite(t.entry) ? Fmt.num(t.entry, 2) : '—'),
       h('td', { className: 'px-3 text-right tabular-nums' }, isFinite(t.exit) ? Fmt.num(t.exit, 2) : '—'),
       h('td', { className: 'px-3 text-right tabular-nums' }, Fmt.num(t.quantity)),
+      h('td', { className: 'px-3 text-right tabular-nums text-slate-400' }, (function() { var m = C.holdMinutes(t); if (m === null) return '—'; if (m < 60) return m + 'm'; return Math.floor(m/60) + 'h ' + (m%60) + 'm'; })()),
       h('td', { className: window.cx('px-3 text-right font-semibold tabular-nums', Fmt.signColor(p)) }, Fmt.money(p, { plus: true })),
       h('td', { className: window.cx('px-3 text-right tabular-nums', r == null ? 'text-slate-400' : Fmt.signColor(r)) }, r == null ? '—' : Fmt.num(r, 2) + 'R'),
       h('td', { className: 'px-3' }, h(UI.ResultBadge, { result: C.resultOf(t) })),
@@ -123,8 +124,9 @@
   function TradeForm(props) {
     var state = Store.getState();
     var isEdit = !!props.trade;
-    var init = props.trade || { accountId: (state.accounts[0] || {}).id, symbol: '', date: Fmt.todayISO(), time: '09:30', side: 'long', quantity: '', entry: '', exit: '', fees: 0, multiplier: '', riskAmount: '', setup: '', emotion: '', rating: '', tags: [], mistakes: [], screenshots: [], notes: '' };
-    var fs = useState(Object.assign({}, init)); var form = fs[0], setForm = fs[1];
+    var init = props.trade || { accountId: (state.accounts[0] || {}).id, symbol: '', date: Fmt.todayISO(), time: '09:30', side: 'long', quantity: '', entry: '', exit: '', fees: 0, multiplier: '', riskAmount: '', setup: '', emotion: '', rating: '', tags: [], mistakes: [], screenshots: [], notes: '', closeDate: '', closeTime: '', isOpen: false };
+    var initWithDefaults = Object.assign({ closeDate: '', closeTime: '', isOpen: false }, init);
+    var fs = useState(initWithDefaults); var form = fs[0], setForm = fs[1];
     function set(k, v) { setForm(function (cur) { var n = Object.assign({}, cur); n[k] = v; return n; }); }
 
     var preview = useMemo(function () {
@@ -156,7 +158,8 @@
         multiplier: form.multiplier === '' || form.multiplier == null ? 1 : (parseFloat(form.multiplier) || 1),
         riskAmount: form.riskAmount === '' || form.riskAmount == null ? null : parseFloat(form.riskAmount),
         setup: form.setup, emotion: form.emotion, rating: form.rating ? parseInt(form.rating, 10) : null,
-        tags: form.tags || [], mistakes: form.mistakes || [], screenshots: form.screenshots || [], notes: String(form.notes || '').trim()
+        tags: form.tags || [], mistakes: form.mistakes || [], screenshots: form.screenshots || [], notes: String(form.notes || '').trim(),
+        closeDate: form.closeDate || null, closeTime: form.closeTime || null, isOpen: !!form.isOpen
       };
       if (isEdit) { Store.update('trades', props.trade.id, obj); window.toast('Trade updated', 'ok'); }
       else { Store.add('trades', obj); window.toast('Trade added', 'ok'); }
@@ -175,6 +178,8 @@
         h(UI.Field, { label: 'Symbol' }, h(UI.Input, { value: form.symbol, placeholder: 'e.g. NQ, AAPL', onChange: function (e) { set('symbol', e.target.value); } })),
         h(UI.Field, { label: 'Date' }, h(UI.Input, { type: 'date', value: form.date, onChange: function (e) { set('date', e.target.value); } })),
         h(UI.Field, { label: 'Time' }, h(UI.Input, { type: 'time', value: form.time, onChange: function (e) { set('time', e.target.value); } })),
+        h(UI.Field, { label: 'Close date' }, h(UI.Input, { type: 'date', value: form.closeDate || '', onChange: function (e) { set('closeDate', e.target.value); } })),
+        h(UI.Field, { label: 'Close time' }, h(UI.Input, { type: 'time', value: form.closeTime || '', onChange: function (e) { set('closeTime', e.target.value); } })),
         h(UI.Field, { label: 'Direction' }, h(UI.Select, { value: form.side, onChange: function (e) { set('side', e.target.value); } },
           h('option', { value: 'long' }, '▲ Long'), h('option', { value: 'short' }, '▼ Short'))),
         h(UI.Field, { label: 'Quantity / Contracts' }, h(UI.Input, { type: 'number', step: 'any', value: form.quantity, onChange: function (e) { set('quantity', e.target.value); } })),
@@ -194,6 +199,10 @@
       h('div', { className: 'mt-3.5' }, h(UI.Field, { label: 'Tags', full: true }, h(UI.TagEditor, { value: form.tags, suggestions: dedupe(TAGS.concat(Store.allTags())), onChange: function (v) { set('tags', v); } }))),
       h('div', { className: 'mt-3.5' }, h(UI.Field, { label: 'Mistakes / rule breaks', full: true }, h(UI.TagEditor, { value: form.mistakes, mistake: true, suggestions: dedupe(MISTAKES.concat(Store.allMistakes())), onChange: function (v) { set('mistakes', v); } }))),
       h('div', { className: 'mt-3.5' }, h(UI.Field, { label: 'Notes', full: true }, h(UI.Textarea, { value: form.notes, placeholder: 'Thesis, what happened, lessons…', onChange: function (e) { set('notes', e.target.value); } }))),
+      h('div', { className: 'mt-3.5' }, h(UI.Field, { label: 'Open position', hint: '— no exit yet, shows in Open Positions', full: true },
+        h('label', { className: 'flex items-center gap-2 cursor-pointer' },
+          h('input', { type: 'checkbox', checked: !!form.isOpen, onChange: function(e){ set('isOpen', e.target.checked); } }),
+          h('span', { className: 'text-sm text-slate-500' }, form.isOpen ? 'Yes — this trade is still open' : 'No — trade is closed')))),
       h('div', { className: 'mt-3.5' },
         h(UI.Field, { label: 'Screenshots', hint: '(stored locally, auto-resized)', full: true },
           h('div', null,

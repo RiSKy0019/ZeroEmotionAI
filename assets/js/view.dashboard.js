@@ -93,9 +93,15 @@
       h('div', { className: 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4' },
         NetPnlCard(s), WinRateCard(s), AvgWinLossCard(s, ratio), PfCard(s, pf), StreakCard(strk)),
 
+      /* ── drawdown warning ───────────────────────────── */
+      dd.pct > 50 ? h('div', { className: 'rounded-xl border border-loss/40 bg-loss/5 px-4 py-3 flex items-center gap-3 text-sm' },
+        h('span', { className: 'text-xl' }, '\u26a0\ufe0f'),
+        h('div', null,
+          h('strong', { className: 'pnl-neg' }, 'Drawdown warning: '),
+          'You are ' + Fmt.pct(dd.pct) + ' into max drawdown (' + Fmt.money(dd.amount) + '). Consider reducing size.')) : null,
+
       /* ── equity + edge score ────────────────────────── */
-      h('div', { className: 'grid grid-cols-1 xl:grid-cols-3 gap-4' },
-        h(UI.Card, { className: 'p-5 xl:col-span-2' },
+      h('div', { className: 'grid grid-cols-1 xl:grid-cols-3 gap-4' },        h(UI.Card, { className: 'p-5 xl:col-span-2' },
           h('div', { className: 'flex items-center justify-between mb-3' },
             h('p', { className: 'text-xs font-semibold uppercase tracking-wider text-slate-400' }, 'Daily Net Cumulative P&L'),
             h('span', { className: 'text-xs text-slate-400' }, ctx.accountId === 'all' ? 'All accounts' : (state.accounts.find(function (a) { return a.id === ctx.accountId; }) || {}).name)),
@@ -103,7 +109,7 @@
         EdgeScoreCard(edge)),
 
       /* ── calendar + weekly stats ────────────────────── */
-      h(Calendar, { trades: trades }),
+      h(Calendar, { trades: trades, go: props.go }),
 
       /* ── net daily P&L + recent + open positions ────── */
       h('div', { className: 'grid grid-cols-1 xl:grid-cols-3 gap-4' },
@@ -217,6 +223,8 @@
   /* ---- Calendar with weekly stats ---- */
   function Calendar(props) {
     var daily = useMemo(function () { return C.dailyPnl(props.trades); }, [props.trades]);
+    var streakMap = useMemo(function () { return C.calendarStreakMap(props.trades); }, [props.trades]);
+    var cumData = useMemo(function () { return C.intradayCumPnl(props.trades); }, [props.trades]);
     var keys = Object.keys(daily).sort();
     var lastIso = keys.length ? keys[keys.length - 1] : Fmt.todayISO();
     var ld = new Date(lastIso + 'T00:00:00');
@@ -258,11 +266,27 @@
             weeks.reduce(function (cells, w) {
               w.forEach(function (day) {
                 if (day == null) { cells.push(h('div', { key: 'e' + cells.length })); return; }
-                var iso = isoOf(day), info = daily[iso];
-                var bg = info ? (info.pnl > 0 ? 'bg-profit/10 border-profit/25' : 'bg-loss/10 border-loss/25') : 'bg-slate-50 dark:bg-ink-800 border-slate-200 dark:border-ink-700';
-                cells.push(h('div', { key: iso, className: 'rounded-lg border min-h-[62px] p-1.5 flex flex-col ' + bg },
+                var iso = isoOf(day), info = streakMap[iso];
+                var bg;
+                if (info) {
+                  if (info.streak >= 3 && info.streakDir === 1)  bg = 'bg-[#00B67A]/20 border-[#00B67A]/50';
+                  else if (info.streak === 2 && info.streakDir === 1)  bg = 'bg-[#00B67A]/10 border-[#00B67A]/30';
+                  else if (info.streak === 1 && info.streakDir === 1)  bg = 'bg-profit/10 border-profit/25';
+                  else if (info.streak >= 3 && info.streakDir === -1) bg = 'bg-[#f6465d]/20 border-[#f6465d]/50';
+                  else if (info.streak === 2 && info.streakDir === -1) bg = 'bg-[#f6465d]/10 border-[#f6465d]/30';
+                  else if (info.streak === 1 && info.streakDir === -1) bg = 'bg-loss/10 border-loss/25';
+                  else bg = 'bg-slate-50 dark:bg-ink-800 border-slate-200 dark:border-ink-700';
+                } else {
+                  bg = 'bg-slate-50 dark:bg-ink-800 border-slate-200 dark:border-ink-700';
+                }
+                var cumPts = cumData[iso] && cumData[iso].points;
+                var cumVal = cumPts && cumPts.length ? cumPts[cumPts.length - 1].cum : null;
+                cells.push(h('div', { key: iso, title: 'Click to open journal for this day',
+                  className: 'rounded-lg border min-h-[62px] p-1.5 flex flex-col cursor-pointer hover:border-brand/40 ' + bg,
+                  onClick: function() { if (props.go) props.go('journal'); } },
                   h('div', { className: 'text-[11px] text-slate-400 font-medium' }, day),
                   info ? h('div', { className: window.cx('text-[12px] font-bold mt-0.5', info.pnl >= 0 ? 'pnl-pos' : 'pnl-neg') }, Fmt.moneyShort(info.pnl)) : null,
+                  cumVal != null ? h('div', { className: 'text-[10px] text-slate-400 mt-0.5' }, 'cum ' + Fmt.moneyShort(cumVal)) : null,
                   info ? h('div', { className: 'text-[10px] text-slate-400 mt-auto' }, info.count + (info.count > 1 ? 't' : 't')) : null));
               });
               return cells;

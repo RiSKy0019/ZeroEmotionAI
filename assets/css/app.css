@@ -237,3 +237,13 @@ h1, h2, h3, h4, h5, h6,
   background: #00E096;
   flex-shrink: 0;
 }
+
+
+/* ---- Print / PDF export ---- */
+@media print {
+  .sidebar-item-label, aside, header { display: none !important; }
+  body { background: #fff !important; color: #000 !important; }
+  .card-base { border: 1px solid #ddd !important; box-shadow: none !important; page-break-inside: avoid; }
+  .pnl-pos { color: #00B67A !important; }
+  .pnl-neg { color: #f6465d !important; }
+}

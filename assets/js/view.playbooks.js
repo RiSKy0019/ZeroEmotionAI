@@ -34,6 +34,7 @@
     var trades = props.trades.filter(function (t) { return t.setup === pb.name; });
     var s = C.stats(trades);
     var pf = s.profitFactor === Infinity ? '∞' : Fmt.num(s.profitFactor, 2);
+    var trendData = C.setupWinRateOverTime(props.trades, pb.name, 4);
     return h(UI.Card, { className: 'p-4' },
       h('div', { className: 'flex items-start justify-between gap-2' },
         h('div', null, h('span', { className: 'text-base font-bold' }, pb.name), ' ', h(UI.Pill, { className: 'bg-brand/15 text-brand-400 border-brand/30' }, pb.market || 'Any'))),
@@ -45,6 +46,9 @@
         mini('Trades', String(s.total))),
       (pb.rules && pb.rules.length) ? h('ul', { className: 'mt-3.5 space-y-1 text-sm' },
         pb.rules.map(function (r, i) { return h('li', { key: i, className: 'text-slate-500 dark:text-slate-300' }, h('span', { className: 'text-brand-400 mr-1.5' }, '✓'), r); })) : null,
+      trendData ? h('div', { className: 'mt-3' },
+        h('div', { className: 'text-[10px] uppercase tracking-wide text-slate-400 font-semibold mb-1' }, 'Win Rate Trend'),
+        h(window.Charts.Line, { labels: trendData.map(function(d){return d.label;}), data: trendData.map(function(d){return d.winRate;}), height: 80, color: '#00B67A' })) : null,
       h('div', { className: 'flex gap-2 mt-3.5' },
         h(UI.Button, { variant: 'ghost', size: 'sm', onClick: props.onEdit }, 'Edit'),
         h(UI.Button, { variant: 'dangerGhost', size: 'sm', onClick: function () {

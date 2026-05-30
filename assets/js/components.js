@@ -1,6 +1,6 @@
 /* ============================================================
    components.js — polished UI primitives (window.UI)
-   TradeZella-quality design: proper depth, hover states, badges
+   PropFirmEdge design: #111111 bg, #24bb78 green, Plus Jakarta Sans
    ============================================================ */
 (function () {
   'use strict';
@@ -56,7 +56,7 @@
   /* ---------- Pill / Chip ---------- */
   function Pill(props) {
     return h('span', {
-      className: window.cx('inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-ink-700 text-slate-500 dark:text-slate-300 border border-slate-200 dark:border-ink-600', props.className)
+      className: window.cx('inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#1b1b1b] text-[#989898] border border-[#212121]', props.className)
     }, props.children);
   }
 
@@ -77,36 +77,36 @@
     return h('span', { className: window.cx(cls, 'mr-1 mb-0.5') }, props.children);
   }
 
-  /* ---------- StatCard — TradeZella style ---------- */
+  /* ---------- StatCard — PropFirmEdge style ---------- */
   function StatCard(props) {
     return h(Card, { className: window.cx('p-5 flex flex-col gap-2', props.className) },
       h('div', { className: 'flex items-start justify-between gap-2' },
         h('div', { className: 'flex flex-col gap-1.5 flex-1 min-w-0' },
-          h('div', { className: 'flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500' },
+          h('div', { className: 'flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#989898]' },
             props.label,
             props.hint ? h('span', { title: props.hint, className: 'cursor-help opacity-70 normal-case tracking-normal' }, 'ⓘ') : null),
           h('div', { className: window.cx('stat-value', props.color || '') }, props.value),
-          props.sub ? h('div', { className: window.cx('text-xs', props.subColor || 'text-slate-400 dark:text-slate-500') }, props.sub) : null),
+          props.sub ? h('div', { className: window.cx('text-xs', props.subColor || 'text-[#989898]') }, props.sub) : null),
         props.right ? h('div', { className: 'shrink-0' }, props.right) : null),
       props.barPct != null
-        ? h('div', { className: 'h-1.5 rounded-full bg-slate-100 dark:bg-ink-700 overflow-hidden' },
-            h('div', { className: 'h-full rounded-full trans', style: { width: Math.max(0, Math.min(100, props.barPct)) + '%', background: props.barColor || '#7c5cff' } }))
+        ? h('div', { className: 'h-1.5 rounded-full bg-[#1b1b1b] overflow-hidden' },
+            h('div', { className: 'h-full rounded-full trans', style: { width: Math.max(0, Math.min(100, props.barPct)) + '%', background: props.barColor || '#24bb78' } }))
         : null
     );
   }
 
   /* ---------- Progress bar ---------- */
   function Progress(props) {
-    return h('div', { className: 'h-2 rounded-full bg-slate-100 dark:bg-ink-700 overflow-hidden' },
-      h('div', { className: 'h-full rounded-full trans', style: { width: Math.max(0, Math.min(100, props.value)) + '%', background: props.color || 'linear-gradient(90deg,#7c5cff,#d946b8)' } }));
+    return h('div', { className: 'h-2 rounded-full bg-[#1b1b1b] overflow-hidden' },
+      h('div', { className: 'h-full rounded-full trans', style: { width: Math.max(0, Math.min(100, props.value)) + '%', background: props.color || '#24bb78' } }));
   }
 
   /* ---------- Empty state ---------- */
   function Empty(props) {
-    return h('div', { className: 'text-center py-20 px-5 rounded-2xl border border-dashed border-slate-200 dark:border-ink-600 bg-white dark:bg-ink-800' },
+    return h('div', { className: 'text-center py-20 px-5 rounded-2xl border border-dashed border-[#212121] bg-[#141414]' },
       h('div', { className: 'text-4xl mb-3 opacity-50' }, props.icon || '🗂️'),
-      h('div', { className: 'font-semibold text-slate-700 dark:text-slate-200 text-base mb-1.5' }, props.title),
-      props.sub ? h('div', { className: 'text-sm text-slate-400 dark:text-slate-500 max-w-sm mx-auto' }, props.sub) : null,
+      h('div', { className: 'font-semibold text-[#f5f5f5] text-base mb-1.5' }, props.title),
+      props.sub ? h('div', { className: 'text-sm text-[#989898] max-w-sm mx-auto' }, props.sub) : null,
       props.action ? h('div', { className: 'mt-5 flex justify-center' }, props.action) : null
     );
   }
@@ -124,9 +124,9 @@
   /* ---------- Form fields ---------- */
   function Field(props) {
     return h('label', { className: window.cx('flex flex-col gap-1.5', props.full ? 'sm:col-span-2' : '') },
-      h('span', { className: 'text-xs font-medium text-slate-500 dark:text-slate-400' },
+      h('span', { className: 'text-xs font-medium text-[#989898]' },
         props.label,
-        props.hint ? h('span', { className: 'text-slate-400 font-normal ml-1' }, props.hint) : null),
+        props.hint ? h('span', { className: 'text-[#989898] font-normal ml-1' }, props.hint) : null),
       props.children
     );
   }
@@ -187,17 +187,17 @@
       return function () { document.removeEventListener('keydown', onKey); document.body.style.overflow = ''; };
     }, []);
     var node = h('div', { className: 'fixed inset-0 z-[100]' },
-      h('div', { className: 'absolute inset-0 bg-black/60 backdrop-blur-[3px] animate-fade-in', onClick: props.onClose }),
+      h('div', { className: 'absolute inset-0 bg-black/70 backdrop-blur-[3px] animate-fade-in', onClick: props.onClose }),
       h('div', { className: window.cx('relative mx-auto my-[4vh] w-[94vw] animate-scale-in', props.wide ? 'max-w-4xl' : 'max-w-2xl') },
-        h('div', { className: 'card-base max-h-[92vh] flex flex-col shadow-card-lg' },
-          h('div', { className: 'flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-ink-700' },
-            h('h3', { className: 'font-bold text-[15px]' }, props.title),
+        h('div', { className: 'card-base max-h-[92vh] flex flex-col', style: { boxShadow: '0 8px 40px rgba(0,0,0,0.6)' } },
+          h('div', { className: 'flex items-center justify-between px-5 py-4 border-b border-[#212121]' },
+            h('h3', { className: 'font-bold text-[15px] text-[#f5f5f5]' }, props.title),
             h('button', {
-              className: 'w-8 h-8 rounded-full grid place-items-center text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-ink-700 trans text-xl leading-none',
+              className: 'w-8 h-8 rounded-full grid place-items-center text-[#989898] hover:text-[#f5f5f5] hover:bg-[#1b1b1b] trans text-xl leading-none',
               onClick: props.onClose
             }, '×')),
           h('div', { className: 'p-5 overflow-y-auto flex-1' }, props.children),
-          props.footer ? h('div', { className: 'px-5 py-4 border-t border-slate-100 dark:border-ink-700 flex justify-end gap-2.5' }, props.footer) : null
+          props.footer ? h('div', { className: 'px-5 py-4 border-t border-[#212121] flex justify-end gap-2.5' }, props.footer) : null
         )));
     return ReactDOM.createPortal(node, document.body);
   }
@@ -216,7 +216,8 @@
         var accent = t.kind === 'ok' ? 'border-l-profit' : t.kind === 'err' ? 'border-l-loss' : 'border-l-brand';
         return h('div', {
           key: t.id,
-          className: window.cx('bg-white dark:bg-ink-800 border border-slate-200 dark:border-ink-600 border-l-4 rounded-xl shadow-card-lg px-4 py-3 text-[13px] font-medium min-w-[220px] max-w-xs animate-slide-in', accent)
+          className: window.cx('bg-[#141414] border border-[#212121] border-l-4 rounded-xl px-4 py-3 text-[13px] font-medium min-w-[220px] max-w-xs animate-slide-in text-[#f5f5f5]', accent),
+          style: { boxShadow: '0 4px 20px rgba(0,0,0,0.5)' }
         }, t.message);
       }));
   }

@@ -242,6 +242,72 @@
     return { trade: { current: curT, sign: signT, longest: stats(trades).winStreak }, day: { current: curD, sign: signD, longest: longestDayWin } };
   }
 
+  /* ── New helpers ── */
+
+  // Hold time in minutes from entry date+time to close date+time
+  function holdMinutes(t) {
+    if (!t.closeDate && !t.closeTime) return null;
+    var open  = new Date((t.date      || '1970-01-01') + 'T' + (t.time      || '00:00') + ':00').getTime();
+    var close = new Date((t.closeDate || t.date)       + 'T' + (t.closeTime || t.time || '00:00') + ':00').getTime();
+    var mins = (close - open) / 60000;
+    return mins > 0 ? Math.round(mins) : null;
+  }
+
+  // % of trading days where net P&L >= threshold (for prop-firm consistency rule)
+  function consistencyRule(trades, threshold) {
+    threshold = threshold || 200;
+    var d = dailyPnl(trades);
+    var days = Object.keys(d);
+    if (!days.length) return { score: 0, green: 0, total: 0 };
+    var green = days.filter(function (k) { return d[k].pnl >= threshold; }).length;
+    return { score: Math.round(green / days.length * 100), green: green, total: days.length };
+  }
+
+  // Running cumulative P&L within each trading day (for intraday overlay)
+  function intradayCumPnl(trades) {
+    var byDay = {};
+    trades.slice().sort(function (a, b) { return timeKey(a) - timeKey(b); }).forEach(function (t) {
+      if (!byDay[t.date]) byDay[t.date] = { cum: 0, points: [] };
+      byDay[t.date].cum += pnlOf(t);
+      byDay[t.date].points.push({ time: t.time || '00:00', cum: r2(byDay[t.date].cum), pnl: pnlOf(t) });
+    });
+    return byDay;
+  }
+
+  // Setup win-rate over time (split into N equal chunks, return [{label, winRate}])
+  function setupWinRateOverTime(trades, setupName, chunks) {
+    chunks = chunks || 5;
+    var ts = trades.filter(function (t) { return t.setup === setupName; })
+                   .sort(function (a, b) { return timeKey(a) - timeKey(b); });
+    if (ts.length < chunks) return null;
+    var sz = Math.floor(ts.length / chunks);
+    var out = [];
+    for (var i = 0; i < chunks; i++) {
+      var slice = ts.slice(i * sz, (i + 1) * sz);
+      var s = stats(slice);
+      out.push({ label: slice[0] ? slice[0].date.slice(0, 7) : ('P' + (i + 1)), winRate: r2(s.winRate) });
+    }
+    return out;
+  }
+
+  // Map each date to a streak bucket for heatmap colouring
+  // Returns { 'YYYY-MM-DD': { pnl, count, streak: 1|2|3, streakDir: 1|-1 } }
+  function calendarStreakMap(trades) {
+    var d = dailyPnl(trades);
+    var days = Object.keys(d).sort();
+    var result = {};
+    var cur = 0, dir = 0;
+    days.forEach(function (day) {
+      var p = d[day].pnl;
+      var nd = p > 0 ? 1 : p < 0 ? -1 : 0;
+      if (nd !== 0 && nd === dir) cur = Math.min(cur + 1, 3);
+      else if (nd !== 0) { cur = 1; dir = nd; }
+      else cur = 0;
+      result[day] = { pnl: d[day].pnl, count: d[day].count, streak: cur, streakDir: dir };
+    });
+    return result;
+  }
+
   window.Store = {
     uid: uid, subscribe: subscribe, getState: getState,
     add: add, update: update, remove: remove, removeAccount: removeAccount, reset: reset, clearAll: clearAll, replaceAll: replaceAll,
@@ -249,7 +315,9 @@
     calc: { r2: r2, pnlOf: pnlOf, rOf: rOf, resultOf: resultOf, stats: stats, equityCurve: equityCurve,
       maxDrawdown: maxDrawdown, groupSum: groupSum, dailyPnl: dailyPnl, rDistribution: rDistribution,
       disciplineScore: disciplineScore, mistakeCost: mistakeCost, timeKey: timeKey,
-      recoveryFactor: recoveryFactor, consistency: consistency, edgeScore: edgeScore, streaks: streaks }
+      recoveryFactor: recoveryFactor, consistency: consistency, edgeScore: edgeScore, streaks: streaks,
+      holdMinutes: holdMinutes, consistencyRule: consistencyRule, intradayCumPnl: intradayCumPnl,
+      setupWinRateOverTime: setupWinRateOverTime, calendarStreakMap: calendarStreakMap }
   };
 
   window.useStore = function () {

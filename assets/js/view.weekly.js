@@ -121,7 +121,35 @@
                 h('td', { className: 'num pnl-neg' }, Fmt.money(wp2, { plus: true })));
             }))))
       )
+      ,
+      h(MonthlyComparison, { trades: trades })
     );
+  }
+
+  function MonthlyComparison(props) {
+    var byMonth = {};
+    props.trades.forEach(function(t) {
+      var m = t.date.slice(0,7);
+      if (!byMonth[m]) byMonth[m] = [];
+      byMonth[m].push(t);
+    });
+    var months = Object.keys(byMonth).sort();
+    if (months.length < 2) return null;
+    var data = months.map(function(m) { return C.stats(byMonth[m]).netPnl; });
+    var recent = months.slice(-3);
+    return h(UI.Card, { className: 'p-5' },
+      h('p', { className: 'text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3' }, 'Monthly Performance'),
+      h(window.Charts.Bars, { labels: months, data: data, height: 220 }),
+      recent.length >= 2 ? h('div', { className: 'flex gap-3 mt-3 flex-wrap' },
+        recent.slice(1).map(function(m, i) {
+          var cur = C.stats(byMonth[m]).netPnl;
+          var prev = C.stats(byMonth[recent[i]]).netPnl;
+          var chg = cur - prev;
+          return h('div', { key: m, className: 'card-base p-3 flex-1 min-w-[120px]' },
+            h('div', { className: 'text-xs text-slate-400' }, m),
+            h('div', { className: 'font-bold text-sm ' + (cur>=0?'pnl-pos':'pnl-neg') }, Fmt.money(cur,{plus:true})),
+            h('div', { className: 'text-xs ' + (chg>=0?'pnl-pos':'pnl-neg') }, (chg>=0?'+':'') + Fmt.moneyShort(chg) + ' vs prev'));
+        })) : null);
   }
 
   function miniCard(label, value, cls) {

@@ -39,9 +39,10 @@
     ['weekly',    'weekly',    'Weekly Summary'],
     ['notebook',  'notebook',  'Notebook'],
     ['playbooks', 'playbooks', 'Playbooks'],
-    ['journal',   'journal',   'Journal']
+    ['journal',   'journal',   'Journal'],
+    ['propfirm',  'reports',   'Prop Firm Tracker']
   ];
-  var TITLES = { dashboard: 'Dashboard', trades: 'Trades', reports: 'Reports & Analytics', insights: 'AI Insights', chat: 'AI Chat', weekly: 'Weekly Summary', notebook: 'Notebook', playbooks: 'Playbooks', journal: 'Journal & Review' };
+  var TITLES = { dashboard: 'Dashboard', trades: 'Trades', reports: 'Reports & Analytics', insights: 'AI Insights', chat: 'AI Chat', weekly: 'Weekly Summary', notebook: 'Notebook', playbooks: 'Playbooks', journal: 'Journal & Review', propfirm: 'Prop Firm Tracker' };
 
 
   function readHash() { var r = (location.hash || '').replace('#', ''); return TITLES[r] ? r : 'dashboard'; }

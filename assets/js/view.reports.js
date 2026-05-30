@@ -39,7 +39,8 @@
     if (!trades.length) return h(UI.Empty, { icon: '📈', title: 'Nothing to report yet', sub: 'Add some trades to unlock the analytics.' });
     var TABS = [['overview','📊 Overview'],['time','🕒 Time'],['instruments','💹 Instruments'],['strategy','📘 Strategy'],['behavior','🧠 Behavior'],['risk','🛡️ Risk']];
     return h('div', { className: 'space-y-4 animate-fade-in' },
-      h(UI.SectionHead, { title: 'Reports & Analytics', sub: 'Find your edges and your leaks across ' + trades.length + ' trades.' }),
+      h(UI.SectionHead, { title: 'Reports & Analytics', sub: 'Find your edges and your leaks across ' + trades.length + ' trades.',
+        right: [h(UI.Button, { key: 'print', variant: 'ghost', size: 'sm', onClick: function() { window.print(); } }, '\ud83d\udda8 Print / PDF')] }),
       h('div', { className: 'flex gap-2 overflow-x-auto no-scrollbar pb-1' },
         TABS.map(function (x) {
           return h('button', { key: x[0], onClick: function () { tab[1](x[0]); },
