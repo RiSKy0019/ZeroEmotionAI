@@ -25,11 +25,12 @@
   function empty() {
     return { meta: { v: 1, createdAt: new Date().toISOString() },
       accounts: [{ id: uid('acc'), name: 'Main Account', broker: 'Manual', startingBalance: 25000 }],
-      trades: [], playbooks: [], journal: [], notes: [] };
+      trades: [], playbooks: [], journal: [], notes: [], settings: {} };
   }
   function ensure(s) {
     ['accounts', 'trades', 'playbooks', 'journal', 'notes'].forEach(function (k) { if (!Array.isArray(s[k])) s[k] = []; });
     if (!s.meta) s.meta = { v: 1, createdAt: new Date().toISOString() };
+    if (!s.settings || typeof s.settings !== 'object') s.settings = {};
     return s;
   }
   function persist() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { console.warn('persist failed', e); } }
@@ -61,6 +62,13 @@
     var n = empty(); n.accounts = state.accounts; commit(n);
   }
   function replaceAll(data) { commit(ensure(data)); }
+
+  function setSetting(key, val) {
+    var n = Object.assign({}, state);
+    n.settings = Object.assign({}, state.settings || {});
+    n.settings[key] = val;
+    commit(n);
+  }
 
   /* ---------- queries ---------- */
   function getTrades(opts) {
@@ -104,7 +112,19 @@
     var mult = Number(t.multiplier) || 1; // contract point value; 1 for stocks/crypto/forex
     return r2((t.exit - t.entry) * t.quantity * mult * dir - (t.fees || 0));
   }
-  function rOf(t) { var risk = Number(t.riskAmount) || 0; return risk > 0 ? r2(pnlOf(t) / risk) : null; }
+  function rOf(t) { var risk = riskBasis(t); return risk > 0 ? r2(pnlOf(t) / risk) : null; }
+  // Dollar risk used as the basis for R-multiples: explicit riskAmount wins,
+  // otherwise derive it from a planned stop (|entry-stop| * qty * multiplier).
+  function riskBasis(t) {
+    var ra = Number(t.riskAmount) || 0;
+    if (ra > 0) return ra;
+    if (t.stop != null && t.stop !== '' && isFinite(Number(t.stop)) && isFinite(t.entry)) {
+      var dist = Math.abs(t.entry - Number(t.stop));
+      var risk = dist * (Number(t.quantity) || 0) * (Number(t.multiplier) || 1);
+      return risk > 0 ? r2(risk) : 0;
+    }
+    return 0;
+  }
   function resultOf(t) { var p = pnlOf(t); return p > 0 ? 'win' : p < 0 ? 'loss' : 'be'; }
 
   function stats(trades) {
@@ -308,16 +328,174 @@
     return result;
   }
 
+  /* ============================================================
+     Tier 1-3 pro analytics: planned/realized R, MFE/MAE excursion,
+     advanced risk metrics, holding-time buckets, underwater curve,
+     benchmark, and fee breakdown.
+     ============================================================ */
+
+  // signed favorable price move (positive = in your favor) for a given price
+  function favMove(t, price) { var dir = t.side === 'short' ? -1 : 1; return (Number(price) - t.entry) * dir; }
+  function mult(t) { return Number(t.multiplier) || 1; }
+
+  // Planned reward:risk from stop & target prices (e.g. 2.5 means 2.5:1)
+  function plannedRR(t) {
+    if (t.stop == null || t.stop === '' || t.target == null || t.target === '' || !isFinite(t.entry)) return null;
+    var risk = Math.abs(t.entry - Number(t.stop));
+    var reward = Math.abs(Number(t.target) - t.entry);
+    return risk > 0 ? r2(reward / risk) : null;
+  }
+
+  // Maximum Favorable Excursion in $ (>=0): how far price went your way (best price = t.mfe)
+  function mfeValue(t) {
+    if (t.mfe == null || t.mfe === '' || !isFinite(Number(t.mfe)) || !isFinite(t.entry)) return null;
+    return r2(Math.max(0, favMove(t, t.mfe)) * (Number(t.quantity) || 0) * mult(t));
+  }
+  // Maximum Adverse Excursion in $ (>=0 = heat taken): worst price = t.mae
+  function maeValue(t) {
+    if (t.mae == null || t.mae === '' || !isFinite(Number(t.mae)) || !isFinite(t.entry)) return null;
+    return r2(Math.max(0, -favMove(t, t.mae)) * (Number(t.quantity) || 0) * mult(t));
+  }
+  function mfeR(t) { var v = mfeValue(t), rb = riskBasis(t); return v != null && rb > 0 ? r2(v / rb) : null; }
+  function maeR(t) { var v = maeValue(t), rb = riskBasis(t); return v != null && rb > 0 ? r2(v / rb) : null; }
+  // Exit efficiency %: how much of the max favorable move you captured at exit
+  function exitEfficiency(t) {
+    if (t.mfe == null || t.mfe === '' || !isFinite(t.exit) || !isFinite(t.entry)) return null;
+    var maxFav = favMove(t, t.mfe), captured = favMove(t, t.exit);
+    if (maxFav <= 0) return null;
+    return r2(Math.max(0, Math.min(1.2, captured / maxFav)) * 100);
+  }
+  function excursionStats(trades) {
+    var effs = [], mfes = [], maes = [], maeWin = [], maeLoss = [];
+    trades.forEach(function (t) {
+      var e = exitEfficiency(t); if (e != null) effs.push(e);
+      var fr = mfeR(t); if (fr != null) mfes.push(fr);
+      var mr = maeR(t); if (mr != null) { maes.push(mr); var p = pnlOf(t); if (p > 0) maeWin.push(mr); else if (p < 0) maeLoss.push(mr); }
+    });
+    return {
+      count: Math.max(effs.length, mfes.length, maes.length),
+      avgEfficiency: effs.length ? r2(avg(effs)) : null,
+      avgMfeR: mfes.length ? r2(avg(mfes)) : null,
+      avgMaeR: maes.length ? r2(avg(maes)) : null,
+      avgMaeWin: maeWin.length ? r2(avg(maeWin)) : null,
+      avgMaeLoss: maeLoss.length ? r2(avg(maeLoss)) : null
+    };
+  }
+
+  // Seeded PRNG so risk-of-ruin is stable across re-renders
+  function mulberry32(a) {
+    return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  }
+  // Probability of blowing the account, via seeded resampling of historical per-trade P&L
+  function riskOfRuin(pnls, startBal) {
+    var cap = Number(startBal) || 0;
+    if (cap <= 0 || !pnls.length) return null;
+    var sum = pnls.reduce(function (a, b) { return a + b; }, 0);
+    var rnd = mulberry32(pnls.length * 1000 + Math.round(sum));
+    var sims = 3000, horizon = Math.max(100, pnls.length * 3), ruin = 0;
+    for (var i = 0; i < sims; i++) {
+      var bal = cap;
+      for (var j = 0; j < horizon; j++) { bal += pnls[Math.floor(rnd() * pnls.length)]; if (bal <= 0) { ruin++; break; } }
+    }
+    return r2(ruin / sims * 100);
+  }
+  // Sharpe/Sortino (per-trade), SQN (Van Tharp), Kelly %, std dev, risk of ruin
+  function advancedRisk(trades, startBal) {
+    var res = { sharpe: null, sortino: null, sqn: null, stdev: null, kelly: null, riskOfRuin: null, expectancyR: null, sampleR: 0 };
+    if (!trades.length) return res;
+    var pnls = trades.map(pnlOf);
+    var n = pnls.length, mean = avg(pnls);
+    var variance = pnls.reduce(function (a, b) { return a + (b - mean) * (b - mean); }, 0) / (n > 1 ? n - 1 : 1);
+    var sd = Math.sqrt(variance);
+    res.stdev = r2(sd);
+    res.sharpe = sd > 0 ? r2(mean / sd) : null;
+    var downSq = pnls.filter(function (x) { return x < 0; }).map(function (x) { return x * x; });
+    var dDev = downSq.length ? Math.sqrt(downSq.reduce(function (a, b) { return a + b; }, 0) / n) : 0;
+    res.sortino = dDev > 0 ? r2(mean / dDev) : (mean > 0 ? Infinity : null);
+    var rs = trades.map(rOf).filter(function (r) { return r !== null; });
+    res.sampleR = rs.length;
+    if (rs.length > 1) {
+      var rm = avg(rs);
+      var rvar = rs.reduce(function (a, b) { return a + (b - rm) * (b - rm); }, 0) / (rs.length - 1);
+      var rsd = Math.sqrt(rvar);
+      res.expectancyR = r2(rm);
+      res.sqn = rsd > 0 ? r2(Math.sqrt(rs.length) * rm / rsd) : null;
+    }
+    var s = stats(trades);
+    var W = s.winRate / 100, b = s.avgLoss > 0 ? s.avgWin / s.avgLoss : 0;
+    res.kelly = b > 0 ? r2((W - (1 - W) / b) * 100) : null;
+    res.riskOfRuin = riskOfRuin(pnls, startBal);
+    return res;
+  }
+
+  // Group P&L by holding-duration bucket (scalp -> swing)
+  function holdBuckets(trades) {
+    var defs = [['< 5 min', 0, 5], ['5\u201330 min', 5, 30], ['30 min\u20132 h', 30, 120], ['2 h\u20131 day', 120, 1440], ['> 1 day', 1440, Infinity]];
+    var out = defs.map(function (d) { return { key: d[0], pnl: 0, count: 0, wins: 0, losses: 0 }; });
+    var unknown = { key: 'Unknown', pnl: 0, count: 0, wins: 0, losses: 0 };
+    trades.forEach(function (t) {
+      var m = holdMinutes(t), p = pnlOf(t), b = null;
+      if (m == null) b = unknown;
+      else { for (var i = 0; i < defs.length; i++) { if (m >= defs[i][1] && m < defs[i][2]) { b = out[i]; break; } } if (!b) b = out[out.length - 1]; }
+      b.pnl += p; b.count++; if (p > 0) b.wins++; else if (p < 0) b.losses++;
+    });
+    out.forEach(function (o) { o.pnl = r2(o.pnl); o.winRate = (o.wins + o.losses) ? o.wins / (o.wins + o.losses) * 100 : 0; });
+    if (unknown.count) { unknown.pnl = r2(unknown.pnl); unknown.winRate = (unknown.wins + unknown.losses) ? unknown.wins / (unknown.wins + unknown.losses) * 100 : 0; out.push(unknown); }
+    return out;
+  }
+
+  // Underwater curve: distance below running peak after each trade (values <= 0)
+  function drawdownSeries(trades, startBal) {
+    var bal = Number(startBal) || 0, peak = bal, out = [{ label: 'Start', value: 0 }];
+    trades.forEach(function (t) { bal += pnlOf(t); if (bal > peak) peak = bal; out.push({ label: t.date, value: r2(bal - peak) }); });
+    return out;
+  }
+
+  // Buy-and-hold benchmark curve at a constant annual % over the trade date span
+  function benchmarkCurve(trades, startBal, annualPct) {
+    var bal = Number(startBal) || 0, rate = Number(annualPct) || 0;
+    var pts = [{ label: 'Start', value: r2(bal) }];
+    if (!trades.length) return pts;
+    var t0 = new Date((trades[0].date || '1970-01-01') + 'T00:00:00').getTime();
+    trades.forEach(function (t) {
+      var ti = new Date((t.date || '1970-01-01') + 'T00:00:00').getTime();
+      var days = Math.max(0, (ti - t0) / 86400000);
+      pts.push({ label: t.date, value: r2(bal * Math.pow(1 + rate / 100, days / 365)) });
+    });
+    return pts;
+  }
+
+  // Commission/swap/other split for one trade, and aggregate fee stats
+  function feeBreakdown(t) {
+    var comm = Number(t.commission) || 0, swap = Number(t.swap) || 0, total = Number(t.fees) || 0;
+    return { commission: r2(comm), swap: r2(swap), other: r2(Math.max(0, total - comm - swap)), total: r2(total) };
+  }
+  function feeStats(trades) {
+    var comm = 0, swap = 0, other = 0, total = 0, gross = 0;
+    trades.forEach(function (t) {
+      var b = feeBreakdown(t); comm += b.commission; swap += b.swap; other += b.other; total += b.total;
+      var dir = t.side === 'short' ? -1 : 1, g = (t.exit - t.entry) * (Number(t.quantity) || 0) * mult(t) * dir;
+      if (isFinite(g)) gross += g;
+    });
+    return { commission: r2(comm), swap: r2(swap), other: r2(other), total: r2(total),
+      pctOfGross: gross !== 0 ? r2(total / Math.abs(gross) * 100) : null, perTrade: trades.length ? r2(total / trades.length) : 0 };
+  }
+
   window.Store = {
     uid: uid, subscribe: subscribe, getState: getState,
     add: add, update: update, remove: remove, removeAccount: removeAccount, reset: reset, clearAll: clearAll, replaceAll: replaceAll,
     getTrades: getTrades, allTags: allTags, allMistakes: allMistakes,
-    calc: { r2: r2, pnlOf: pnlOf, rOf: rOf, resultOf: resultOf, stats: stats, equityCurve: equityCurve,
+    getSettings: function () { return state.settings || {}; }, setSetting: setSetting,
+    calc: { r2: r2, pnlOf: pnlOf, rOf: rOf, riskBasis: riskBasis, resultOf: resultOf, stats: stats, equityCurve: equityCurve,
       maxDrawdown: maxDrawdown, groupSum: groupSum, dailyPnl: dailyPnl, rDistribution: rDistribution,
       disciplineScore: disciplineScore, mistakeCost: mistakeCost, timeKey: timeKey,
       recoveryFactor: recoveryFactor, consistency: consistency, edgeScore: edgeScore, streaks: streaks,
       holdMinutes: holdMinutes, consistencyRule: consistencyRule, intradayCumPnl: intradayCumPnl,
-      setupWinRateOverTime: setupWinRateOverTime, calendarStreakMap: calendarStreakMap }
+      setupWinRateOverTime: setupWinRateOverTime, calendarStreakMap: calendarStreakMap,
+      plannedRR: plannedRR, mfeValue: mfeValue, maeValue: maeValue, mfeR: mfeR, maeR: maeR,
+      exitEfficiency: exitEfficiency, excursionStats: excursionStats, advancedRisk: advancedRisk,
+      riskOfRuin: riskOfRuin, holdBuckets: holdBuckets, drawdownSeries: drawdownSeries,
+      benchmarkCurve: benchmarkCurve, feeBreakdown: feeBreakdown, feeStats: feeStats }
   };
 
   window.useStore = function () {

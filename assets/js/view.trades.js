@@ -121,11 +121,45 @@
     });
   }
 
+  /* ---------- Planned-level readout chip + Trade map visualization ---------- */
+  function lvlChip(label, value, tone) {
+    var cls = tone === 'pos' ? 'text-profit' : tone === 'neg' ? 'text-loss' : 'text-slate-600 dark:text-slate-200';
+    return h('div', { className: 'rounded-lg border border-slate-200 dark:border-ink-600 bg-slate-50 dark:bg-ink-900 px-2.5 py-1.5' },
+      h('div', { className: 'text-[9px] uppercase tracking-wide text-slate-400 font-semibold' }, label),
+      h('div', { className: window.cx('text-[12px] font-bold tabular-nums', cls) }, value));
+  }
+  function tcNum(v) { var x = parseFloat(v); return isFinite(x) ? x : null; }
+  function TradeChart(props) {
+    var f = props.form;
+    var entry = tcNum(f.entry), exit = tcNum(f.exit), stop = tcNum(f.stop), target = tcNum(f.target), mfe = tcNum(f.mfe), mae = tcNum(f.mae);
+    var dir = f.side === 'short' ? -1 : 1;
+    var exitColor = (exit != null && entry != null) ? (((exit - entry) * dir) >= 0 ? '#0ecb81' : '#f6465d') : '#3b82f6';
+    var rows = [
+      ['Target', target, '#0ecb81', false], ['MFE', mfe, '#16c784', true],
+      ['Exit', exit, exitColor, false], ['Entry', entry, '#94a3b8', false],
+      ['MAE', mae, '#ea3943', true], ['Stop', stop, '#f6465d', false]
+    ].filter(function (r) { return r[1] != null; });
+    if (rows.length < 2) return null;
+    var vals = rows.map(function (r) { return r[1]; });
+    var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+    var span = (hi - lo) || 1, pad = span * 0.14; lo -= pad; hi += pad; span = hi - lo;
+    function yp(v) { return (1 - (v - lo) / span) * 100; }
+    return h('div', { className: 'mt-4' },
+      h('div', { className: 'text-[10px] uppercase tracking-wide text-slate-400 font-semibold mb-1' }, 'Trade map'),
+      h('div', { className: 'relative rounded-xl bg-slate-50 dark:bg-ink-900 border border-slate-200 dark:border-ink-700', style: { height: '170px' } },
+        rows.map(function (r) {
+          return h('div', { key: r[0], className: 'absolute left-2 right-2 flex items-center', style: { top: yp(r[1]) + '%', transform: 'translateY(-50%)' } },
+            h('div', { className: 'flex-1', style: { borderTop: '2px ' + (r[3] ? 'dashed' : 'solid') + ' ' + r[2] } }),
+            h('div', { className: 'ml-2 text-[10px] font-semibold whitespace-nowrap px-1.5 py-0.5 rounded', style: { color: '#fff', background: r[2] } }, r[0] + ' ' + Fmt.num(r[1], 2)));
+        })));
+  }
+
   function TradeForm(props) {
     var state = Store.getState();
     var isEdit = !!props.trade;
     var init = props.trade || { accountId: (state.accounts[0] || {}).id, symbol: '', date: Fmt.todayISO(), time: '09:30', side: 'long', quantity: '', entry: '', exit: '', fees: 0, multiplier: '', riskAmount: '', setup: '', emotion: '', rating: '', tags: [], mistakes: [], screenshots: [], notes: '', closeDate: '', closeTime: '', isOpen: false };
-    var initWithDefaults = Object.assign({ closeDate: '', closeTime: '', isOpen: false }, init);
+    var initWithDefaults = Object.assign({ closeDate: '', closeTime: '', isOpen: false,
+      stop: '', target: '', mfe: '', mae: '', commission: '', swap: '', executions: [] }, init);
     var fs = useState(initWithDefaults); var form = fs[0], setForm = fs[1];
     function set(k, v) { setForm(function (cur) { var n = Object.assign({}, cur); n[k] = v; return n; }); }
 
@@ -134,6 +168,40 @@
       if (![entry, exit, qty].every(isFinite)) return null;
       return C.pnlOf({ side: form.side, entry: entry, exit: exit, quantity: qty, fees: parseFloat(form.fees) || 0, multiplier: parseFloat(form.multiplier) || 1 });
     }, [form.entry, form.exit, form.quantity, form.side, form.fees, form.multiplier]);
+
+    // numeric trade object for planned-level / excursion calc (null when blank)
+    function fNum(v) { return (v === '' || v == null || !isFinite(parseFloat(v))) ? null : parseFloat(v); }
+    var levels = useMemo(function () {
+      var t = { side: form.side, entry: fNum(form.entry), exit: fNum(form.exit),
+        quantity: fNum(form.quantity) || 0, multiplier: fNum(form.multiplier) || 1,
+        riskAmount: fNum(form.riskAmount), stop: fNum(form.stop), target: fNum(form.target),
+        mfe: fNum(form.mfe), mae: fNum(form.mae) };
+      return {
+        rr: C.plannedRR(t), riskBasis: C.riskBasis(t), realR: C.rOf(t),
+        eff: C.exitEfficiency(t), mfeR: C.mfeR(t), maeR: C.maeR(t),
+        mfe$: C.mfeValue(t), mae$: C.maeValue(t)
+      };
+    }, [form.side, form.entry, form.exit, form.quantity, form.multiplier, form.riskAmount, form.stop, form.target, form.mfe, form.mae]);
+
+    // ── scaling in/out: recompute weighted-avg entry/exit/qty from execution legs ──
+    function recalcLegs(legs) {
+      var eQty = 0, eNot = 0, xQty = 0, xNot = 0;
+      legs.forEach(function (l) {
+        var pr = parseFloat(l.price), q = parseFloat(l.qty);
+        if (!isFinite(pr) || !isFinite(q) || q <= 0) return;
+        if (l.kind === 'exit') { xQty += q; xNot += pr * q; } else { eQty += q; eNot += pr * q; }
+      });
+      setForm(function (cur) {
+        var n = Object.assign({}, cur, { executions: legs });
+        if (eQty > 0) { n.entry = String(C.r2(eNot / eQty)); n.quantity = String(eQty); }
+        if (xQty > 0) { n.exit = String(C.r2(xNot / xQty)); }
+        return n;
+      });
+    }
+    function addLeg(kind) { recalcLegs((form.executions || []).concat([{ kind: kind || 'entry', price: '', qty: '' }])); }
+    function setLeg(i, k, v) { var legs = (form.executions || []).map(function (l, j) { return j === i ? Object.assign({}, l, (function () { var o = {}; o[k] = v; return o; })()) : l; }); recalcLegs(legs); }
+    function delLeg(i) { recalcLegs((form.executions || []).filter(function (_, j) { return j !== i; })); }
+    var scaleOpen = useState((initWithDefaults.executions || []).length > 0); var scaling = scaleOpen[0];
 
     function onFiles(e) {
       var files = Array.prototype.slice.call(e.target.files || []);
@@ -154,6 +222,9 @@
         accountId: form.accountId, symbol: symbol, date: form.date, time: form.time, side: form.side,
         quantity: hasPrices ? qty : (isFinite(qty) ? qty : 1), entry: hasPrices ? entry : null, exit: hasPrices ? exit : null,
         fees: parseFloat(form.fees) || 0,
+        commission: fNum(form.commission), swap: fNum(form.swap),
+        stop: fNum(form.stop), target: fNum(form.target), mfe: fNum(form.mfe), mae: fNum(form.mae),
+        executions: (form.executions || []).filter(function (l) { return isFinite(parseFloat(l.price)) && isFinite(parseFloat(l.qty)); }),
         pnlOverride: hasPrices ? null : carriedOverride,
         multiplier: form.multiplier === '' || form.multiplier == null ? 1 : (parseFloat(form.multiplier) || 1),
         riskAmount: form.riskAmount === '' || form.riskAmount == null ? null : parseFloat(form.riskAmount),
@@ -196,6 +267,50 @@
           h('option', { value: '' }, '—'), [1, 2, 3, 4, 5].map(function (n) { return h('option', { key: n, value: n }, '★'.repeat(n)); }))),
         h(UI.Field, { label: 'Live P&L preview' }, h('div', { className: window.cx('rounded-xl px-3 py-2 text-sm font-bold bg-slate-50 dark:bg-ink-900 border border-slate-200 dark:border-ink-600', preview == null ? 'text-slate-400' : Fmt.signColor(preview)) }, preview == null ? '—' : Fmt.money(preview, { plus: true })))
       ),
+      /* ── Planned levels, excursion & costs ── */
+      h('div', { className: 'mt-4 rounded-2xl border border-slate-200 dark:border-ink-600 p-4' },
+        h('div', { className: 'flex items-center justify-between mb-3 flex-wrap gap-2' },
+          h('p', { className: 'text-xs font-semibold uppercase tracking-wider text-slate-400' }, 'Planned levels, excursion & costs'),
+          h('span', { className: 'text-[11px] text-slate-400' }, 'Optional — powers R:R, MFE/MAE & exit-efficiency analytics')),
+        h('div', { className: 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3' },
+          h(UI.Field, { label: 'Stop price' }, h(UI.Input, { type: 'number', step: 'any', value: form.stop, onChange: function (e) { set('stop', e.target.value); } })),
+          h(UI.Field, { label: 'Target price' }, h(UI.Input, { type: 'number', step: 'any', value: form.target, onChange: function (e) { set('target', e.target.value); } })),
+          h(UI.Field, { label: 'MFE price', hint: '— best' }, h(UI.Input, { type: 'number', step: 'any', value: form.mfe, onChange: function (e) { set('mfe', e.target.value); } })),
+          h(UI.Field, { label: 'MAE price', hint: '— worst' }, h(UI.Input, { type: 'number', step: 'any', value: form.mae, onChange: function (e) { set('mae', e.target.value); } })),
+          h(UI.Field, { label: 'Commission' }, h(UI.Input, { type: 'number', step: 'any', value: form.commission, onChange: function (e) { set('commission', e.target.value); } })),
+          h(UI.Field, { label: 'Swap / fin.' }, h(UI.Input, { type: 'number', step: 'any', value: form.swap, onChange: function (e) { set('swap', e.target.value); } }))),
+        h('div', { className: 'flex flex-wrap gap-2 mt-3' },
+          lvlChip('Planned R:R', levels.rr != null ? levels.rr + ' : 1' : '—', levels.rr != null ? (levels.rr >= 1 ? 'pos' : 'neg') : 'neutral'),
+          lvlChip('Risk basis', levels.riskBasis ? Fmt.money(levels.riskBasis) : '—', 'neutral'),
+          lvlChip('Realized R', levels.realR != null ? Fmt.num(levels.realR, 2) + 'R' : '—', levels.realR != null ? (levels.realR >= 0 ? 'pos' : 'neg') : 'neutral'),
+          lvlChip('Exit efficiency', levels.eff != null ? Fmt.num(levels.eff, 0) + '%' : '—', levels.eff != null ? (levels.eff >= 70 ? 'pos' : levels.eff >= 40 ? 'neutral' : 'neg') : 'neutral'),
+          lvlChip('MFE', levels.mfeR != null ? levels.mfeR + 'R' : (levels['mfe$'] != null ? Fmt.money(levels['mfe$']) : '—'), 'pos'),
+          lvlChip('MAE', levels.maeR != null ? '-' + levels.maeR + 'R' : (levels['mae$'] != null ? '-' + Fmt.money(levels['mae$']) : '—'), 'neg')),
+        h(TradeChart, { form: form })),
+      /* ── Scale in / out (multiple executions) ── */
+      h('div', { className: 'mt-4 rounded-2xl border border-slate-200 dark:border-ink-600 p-4' },
+        h('div', { className: 'flex items-center justify-between mb-2 flex-wrap gap-2' },
+          h('div', null,
+            h('p', { className: 'text-xs font-semibold uppercase tracking-wider text-slate-400' }, 'Scale in / out (multiple executions)'),
+            h('p', { className: 'text-[11px] text-slate-400 mt-0.5' }, 'Add fills — weighted-avg entry/exit & total size are computed for you.')),
+          h('div', { className: 'flex gap-2' },
+            h(UI.Button, { variant: 'ghost', size: 'sm', onClick: function () { addLeg('entry'); } }, '+ Entry fill'),
+            h(UI.Button, { variant: 'ghost', size: 'sm', onClick: function () { addLeg('exit'); } }, '+ Exit fill'))),
+        (form.executions && form.executions.length)
+          ? h('div', { className: 'space-y-2 mt-2' },
+              form.executions.map(function (l, i) {
+                return h('div', { key: i, className: 'grid grid-cols-12 gap-2 items-center' },
+                  h('div', { className: 'col-span-3' },
+                    h(UI.Select, { value: l.kind, onChange: function (e) { setLeg(i, 'kind', e.target.value); } },
+                      h('option', { value: 'entry' }, 'Entry'), h('option', { value: 'exit' }, 'Exit'))),
+                  h('div', { className: 'col-span-4' },
+                    h(UI.Input, { type: 'number', step: 'any', placeholder: 'Price', value: l.price, onChange: function (e) { setLeg(i, 'price', e.target.value); } })),
+                  h('div', { className: 'col-span-3' },
+                    h(UI.Input, { type: 'number', step: 'any', placeholder: 'Qty', value: l.qty, onChange: function (e) { setLeg(i, 'qty', e.target.value); } })),
+                  h('div', { className: 'col-span-2 text-right' },
+                    h('button', { type: 'button', className: 'text-loss text-xs font-semibold px-2 py-1 rounded hover:bg-loss/10', onClick: function () { delLeg(i); } }, '✕')));
+              }))
+          : h('p', { className: 'text-xs text-slate-400 mt-1' }, 'No legs added — the single entry/exit above is used as-is.')),
       h('div', { className: 'mt-3.5' }, h(UI.Field, { label: 'Tags', full: true }, h(UI.TagEditor, { value: form.tags, suggestions: dedupe(TAGS.concat(Store.allTags())), onChange: function (v) { set('tags', v); } }))),
       h('div', { className: 'mt-3.5' }, h(UI.Field, { label: 'Mistakes / rule breaks', full: true }, h(UI.TagEditor, { value: form.mistakes, mistake: true, suggestions: dedupe(MISTAKES.concat(Store.allMistakes())), onChange: function (v) { set('mistakes', v); } }))),
       h('div', { className: 'mt-3.5' }, h(UI.Field, { label: 'Notes', full: true }, h(UI.Textarea, { value: form.notes, placeholder: 'Thesis, what happened, lessons…', onChange: function (e) { set('notes', e.target.value); } }))),
@@ -262,10 +377,18 @@
     headerRow.forEach(function (hh, i) { var n = String(hh).trim().toLowerCase(); Object.keys(CSV_FIELDS).forEach(function (fld) { if (idx[fld] === undefined && CSV_FIELDS[fld].indexOf(n) >= 0) idx[fld] = i; }); });
     return idx;
   }
-  function mapCsv(text, accountId) {
-    var rows = parseCSV(text); if (!rows.length) return { trades: [], invalid: 0, recognized: false };
+  function mapCsv(text, accountId, mapOverride) {
+    var rows = parseCSV(text); if (!rows.length) return { trades: [], invalid: 0, recognized: false, headers: [], idx: {} };
     var idx = headerIndex(rows[0]);
-    if (idx.symbol === undefined || idx.entry === undefined || idx.exit === undefined) return { trades: [], invalid: 0, recognized: false };
+    if (mapOverride) {
+      Object.keys(mapOverride).forEach(function (k) {
+        var v = mapOverride[k];
+        if (v === '' || v == null) { delete idx[k]; } else { idx[k] = parseInt(v, 10); }
+      });
+    }
+    var headers = rows[0];
+    if (idx.symbol === undefined || idx.entry === undefined || idx.exit === undefined)
+      return { trades: [], invalid: rows.length > 1 ? rows.length - 1 : 0, recognized: false, headers: headers, idx: idx };
     var out = [], invalid = 0;
     for (var r = 1; r < rows.length; r++) {
       var row = rows[r], g = function (f) { return idx[f] !== undefined ? row[idx[f]] : ''; };
@@ -285,8 +408,11 @@
         setup: String(g('setup') || '').trim(), tags: split(g('tags')), mistakes: split(g('mistakes')),
         emotion: '', rating: null, screenshots: [], notes: String(g('notes') || '').trim() });
     }
-    return { trades: out, invalid: invalid, recognized: true };
+    return { trades: out, invalid: invalid, recognized: true, headers: headers, idx: idx };
   }
+  var CSV_FIELD_LABELS = { date: 'Date', time: 'Time', symbol: 'Symbol *', side: 'Side', quantity: 'Quantity *',
+    entry: 'Entry *', exit: 'Exit *', fees: 'Fees', riskAmount: 'Risk $', multiplier: 'Multiplier',
+    setup: 'Setup', tags: 'Tags', mistakes: 'Mistakes', notes: 'Notes' };
   var SAMPLE = 'Date,Time,Symbol,Side,Quantity,Entry,Exit,Fees,Setup,Tags,Mistakes,Risk,Notes\n' +
     '2026-05-20,09:34,NQ,Long,2,18520.25,18560.50,4.40,Opening Range Breakout,Trend day,,300,Clean break with volume\n' +
     '2026-05-20,10:12,AAPL,Short,150,224.80,223.10,1.50,Mean Reversion Fade,Reversal,Chased entry,250,Faded into resistance\n' +
@@ -296,9 +422,15 @@
     var state = Store.getState();
     var defAcc = (props.ctx && props.ctx.accountId && props.ctx.accountId !== 'all') ? props.ctx.accountId : (state.accounts[0] || {}).id;
     var acc = useState(defAcc); var text = useState('');
-    var parsed = useMemo(function () { return text[0].trim() ? mapCsv(text[0], acc[0]) : { trades: [], invalid: 0, recognized: false }; }, [text[0], acc[0]]);
+    var mapS = useState({}); var mapOv = mapS[0];
+    var parsed = useMemo(function () {
+      return text[0].trim() ? mapCsv(text[0], acc[0], Object.keys(mapOv).length ? mapOv : null) : { trades: [], invalid: 0, recognized: false, headers: [], idx: {} };
+    }, [text[0], acc[0], JSON.stringify(mapOv)]);
 
-    function onFile(e) { var f = e.target.files && e.target.files[0]; if (!f) return; var rd = new FileReader(); rd.onload = function () { text[1](rd.result); }; rd.readAsText(f); }
+    function loadText(v) { mapS[1]({}); text[1](v); }
+    function onFile(e) { var f = e.target.files && e.target.files[0]; if (!f) return; var rd = new FileReader(); rd.onload = function () { loadText(rd.result); }; rd.readAsText(f); }
+    function curMap(field) { return mapOv[field] !== undefined ? mapOv[field] : (parsed.idx && parsed.idx[field] !== undefined ? parsed.idx[field] : ''); }
+    function setMap(field, val) { var o = {}; o[field] = val; mapS[1](Object.assign({}, mapOv, o)); }
     function doImport() {
       if (!parsed.recognized || !parsed.trades.length) return;
       parsed.trades.forEach(function (t) { t.accountId = acc[0]; Store.add('trades', t); });
@@ -306,24 +438,37 @@
       props.onClose();
     }
     var n = parsed.trades.length;
+    var headers = parsed.headers || [];
     var footer = [
       h(UI.Button, { key: 'c', variant: 'ghost', onClick: props.onClose }, 'Cancel'),
       h(UI.Button, { key: 'i', variant: 'primary', disabled: !parsed.recognized || n === 0, onClick: doImport }, n ? ('Import ' + n + ' trade' + (n > 1 ? 's' : '')) : 'Import')
     ];
 
     return h(UI.Modal, { title: 'Import Trades from CSV', wide: true, onClose: props.onClose, footer: footer },
-      h('p', { className: 'text-sm text-slate-500 dark:text-slate-400 mb-3' }, 'Upload or paste a CSV. The first row must be headers; columns are auto-detected (date, symbol, side, quantity, entry, exit, fees, setup, tags, mistakes, risk, notes). P&L and R are calculated for you.'),
+      h('p', { className: 'text-sm text-slate-500 dark:text-slate-400 mb-3' }, 'Upload or paste a CSV from any broker. Columns are auto-detected; if a column is wrong, use the ', h('strong', null, 'Column mapping'), ' panel below to point each field at the right CSV column. P&L and R are calculated for you.'),
       h('div', { className: 'grid grid-cols-1 sm:grid-cols-2 gap-3.5' },
         h(UI.Field, { label: 'Import into account' }, h(UI.Select, { value: acc[0], onChange: function (e) { acc[1](e.target.value); } },
           state.accounts.map(function (a) { return h('option', { key: a.id, value: a.id }, a.name); }))),
         h(UI.Field, { label: 'CSV file' }, h('input', { type: 'file', accept: '.csv,text/csv', onChange: onFile, className: 'text-sm text-slate-500 py-2' }))),
-      h('div', { className: 'mt-3.5' }, h(UI.Field, { label: 'Paste CSV', full: true }, h(UI.Textarea, { value: text[0], placeholder: '…or paste rows here (first row = headers)', className: 'font-mono text-xs min-h-[130px]', onChange: function (e) { text[1](e.target.value); } }))),
+      h('div', { className: 'mt-3.5' }, h(UI.Field, { label: 'Paste CSV', full: true }, h(UI.Textarea, { value: text[0], placeholder: '…or paste rows here (first row = headers)', className: 'font-mono text-xs min-h-[130px]', onChange: function (e) { loadText(e.target.value); } }))),
       h('div', { className: 'flex gap-3 mt-2' },
-        h('button', { className: 'text-brand-400 text-xs font-semibold hover:underline', onClick: function () { text[1](SAMPLE); } }, 'Load sample'),
+        h('button', { className: 'text-brand-400 text-xs font-semibold hover:underline', onClick: function () { loadText(SAMPLE); } }, 'Load sample'),
         h('button', { className: 'text-brand-400 text-xs font-semibold hover:underline', onClick: function () { Fmt.download('zeroemotionai-import-template.csv', SAMPLE, 'text/csv'); } }, '⭳ Download template')),
+      /* ── Column mapping panel ── */
+      headers.length ? h('div', { className: 'mt-4 rounded-2xl border border-slate-200 dark:border-ink-600 p-4' },
+        h('div', { className: 'flex items-center justify-between mb-3 flex-wrap gap-2' },
+          h('p', { className: 'text-xs font-semibold uppercase tracking-wider text-slate-400' }, 'Column mapping'),
+          h('span', { className: 'text-[11px] text-slate-400' }, '* required — adjust if auto-detect got it wrong')),
+        h('div', { className: 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5' },
+          Object.keys(CSV_FIELD_LABELS).map(function (field) {
+            return h(UI.Field, { key: field, label: CSV_FIELD_LABELS[field] },
+              h(UI.Select, { value: String(curMap(field)), onChange: function (e) { setMap(field, e.target.value); } },
+                h('option', { value: '' }, '— ignore —'),
+                headers.map(function (hdr, ci) { return h('option', { key: ci, value: ci }, (String(hdr).trim() || ('Column ' + (ci + 1)))); })));
+          }))) : null,
       text[0].trim() ? h('div', { className: 'mt-4' },
         !parsed.recognized
-          ? h('div', { className: 'rounded-xl border border-dashed border-loss/40 bg-loss/5 text-sm p-4' }, '⚠️ Could not detect required columns. Make sure the header row includes at least symbol, entry and exit.')
+          ? h('div', { className: 'rounded-xl border border-dashed border-loss/40 bg-loss/5 text-sm p-4' }, '⚠️ Map at least ', h('strong', null, 'Symbol, Entry and Exit'), ' above to enable import. (' + (parsed.invalid || 0) + ' row(s) detected.)')
           : h('div', null,
               h('div', { className: 'flex gap-3 mb-3 flex-wrap' },
                 h(UI.Pill, null, h('strong', { className: 'text-profit' }, n), ' valid'),

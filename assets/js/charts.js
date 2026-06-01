@@ -176,5 +176,35 @@
     return h('div', { className: 'chart-host', style: { height: height + 'px' } }, h('canvas', { ref: ref }));
   }
 
-  window.Charts = { Line: Line, Bars: Bars, Doughnut: Doughnut, Radar: Radar, Gauge: Gauge };
+  // Multi-series line chart (e.g. equity vs benchmark, underwater curve)
+  function LineMulti(props) {
+    var theme = window.useTheme();
+    var currency = window.useCurrency();
+    var height = props.height || 280;
+    if (!window.Chart) return h(Fallback, { height: height });
+    var p = palette(theme);
+    var series = props.series || [];
+    var fmt = props.fmt || 'money';
+    var ref = useChart(function (canvas) {
+      var ctx = canvas.getContext('2d');
+      var datasets = series.map(function (s) {
+        var color = s.color || p.brand;
+        var bg = color;
+        if (s.fill) { var grad = ctx.createLinearGradient(0, 0, 0, height); grad.addColorStop(0, rgba(color, 0.28)); grad.addColorStop(1, rgba(color, 0.01)); bg = grad; }
+        return { label: s.label, data: s.data, borderColor: color, backgroundColor: bg, fill: !!s.fill,
+          tension: 0.22, borderWidth: 2, borderDash: s.dashed ? [5, 4] : [], pointRadius: 0, pointHoverRadius: 4, pointHoverBackgroundColor: color };
+      });
+      return new window.Chart(canvas, {
+        type: 'line',
+        data: { labels: props.labels, datasets: datasets },
+        options: { responsive: true, maintainAspectRatio: false, interaction: { intersect: false, mode: 'index' },
+          plugins: { legend: { display: series.length > 1, position: 'top', align: 'end', labels: { color: p.tipBody, font: { family: FONT, size: 11 }, usePointStyle: true, boxWidth: 8, padding: 12 } },
+            tooltip: Object.assign(tip(p), { callbacks: { label: function (c) { return '  ' + (c.dataset.label ? c.dataset.label + ': ' : '') + tipFmt(c.parsed.y, fmt).trim(); } } }) },
+          scales: baseScales(p, { fmt: fmt }) }
+      });
+    }, [JSON.stringify(props.labels), JSON.stringify(series), theme, currency, fmt], height);
+    return h('div', { className: 'chart-host', style: { height: height + 'px' } }, h('canvas', { ref: ref }));
+  }
+
+  window.Charts = { Line: Line, LineMulti: LineMulti, Bars: Bars, Doughnut: Doughnut, Radar: Radar, Gauge: Gauge };
 })();
