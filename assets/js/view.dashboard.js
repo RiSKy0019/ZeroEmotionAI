@@ -100,6 +100,17 @@
           h('strong', { className: 'pnl-neg' }, 'Drawdown warning: '),
           'You are ' + Fmt.pct(dd.pct) + ' into max drawdown (' + Fmt.money(dd.amount) + '). Consider reducing size.')) : null,
 
+      /* ── daily guardrail breach (from Goals settings) ── */
+      (function () {
+        var breaches = window.evaluateGuardrails ? window.evaluateGuardrails(trades) : null;
+        return breaches ? h('div', { className: 'rounded-xl border border-loss/50 bg-loss/10 px-4 py-3 flex items-start gap-3 text-sm' },
+          h('span', { className: 'text-xl' }, '\ud83d\uded1'),
+          h('div', null,
+            h('strong', { className: 'pnl-neg' }, 'Risk guardrail: '),
+            breaches.join(' · '), '. ',
+            h('button', { className: 'underline font-semibold', onClick: function () { props.go('goals'); } }, 'Review goals'))) : null;
+      })(),
+
       /* ── equity + edge score ────────────────────────── */
       h('div', { className: 'grid grid-cols-1 xl:grid-cols-3 gap-4' },        h(UI.Card, { className: 'p-5 xl:col-span-2' },
           h('div', { className: 'flex items-center justify-between mb-3' },

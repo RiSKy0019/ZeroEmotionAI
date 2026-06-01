@@ -36,6 +36,7 @@
     var state = props.state, ctx = props.ctx;
     var trades = useMemo(function () { return Store.getTrades(ctx); }, [state, ctx.accountId, ctx.range]);
     var tab = useState('overview'); var t = tab[0];
+    var bench = useState('10');
     if (!trades.length) return h(UI.Empty, { icon: '📈', title: 'Nothing to report yet', sub: 'Add some trades to unlock the analytics.' });
     var TABS = [['overview','📊 Overview'],['time','🕒 Time'],['instruments','💹 Instruments'],['strategy','📘 Strategy'],['behavior','🧠 Behavior'],['risk','🛡️ Risk']];
     return h('div', { className: 'space-y-4 animate-fade-in' },
@@ -47,7 +48,7 @@
             className: window.cx('px-3.5 py-2 rounded-xl text-sm font-semibold whitespace-nowrap border transition',
               t === x[0] ? 'bg-brand text-white border-brand shadow-glow' : 'bg-white dark:bg-ink-800 border-slate-200 dark:border-ink-600 text-slate-500 dark:text-slate-300 hover:border-brand/40') }, x[1]);
         })),
-      t === 'overview'     ? OverviewTab(trades, state, ctx) :
+      t === 'overview'     ? OverviewTab(trades, state, ctx, bench) :
       t === 'time'         ? TimeTab(trades) :
       t === 'instruments'  ? InstrumentsTab(trades) :
       t === 'strategy'     ? StrategyTab(trades) :
@@ -59,7 +60,7 @@
   /* ================================================================
      OVERVIEW TAB — big stats table + equity + key metrics
      ================================================================ */
-  function OverviewTab(trades, state, ctx) {
+  function OverviewTab(trades, state, ctx, bench) {
     var s = C.stats(trades);
     var sb = startBal(state, ctx);
     var dd = C.maxDrawdown(trades, sb);
@@ -121,12 +122,43 @@
         h('p', { className: 'text-[11px] uppercase tracking-wide text-slate-400 font-semibold mb-2' }, 'Equity curve'),
         h(window.Charts.Line, {
           labels: eq.map(function (p, i) { return i === 0 ? 'Start' : Fmt.dateShort(p.label); }),
-          data: eq.map(function (p) { return p.value; }), height: 280 })));
+          data: eq.map(function (p) { return p.value; }), height: 280 })),
+      /* benchmark overlay */
+      (function () {
+        var pct = parseFloat(bench[0]); if (!isFinite(pct)) pct = 0;
+        var bm = C.benchmarkCurve(trades, sb, pct);
+        var youEnd = eq[eq.length - 1].value, bmEnd = bm[bm.length - 1].value;
+        var diff = youEnd - bmEnd;
+        return h(UI.Card, { className: 'p-4' },
+          h('div', { className: 'flex items-center justify-between mb-2 flex-wrap gap-2' },
+            h('div', null,
+              h('p', { className: 'text-[11px] uppercase tracking-wide text-slate-400 font-semibold' }, 'You vs. buy-and-hold benchmark'),
+              h('p', { className: 'text-xs text-slate-400 mt-0.5' }, 'Are you beating a passive index return over the same period?')),
+            h('div', { className: 'flex items-center gap-2' },
+              h('span', { className: 'text-xs text-slate-400' }, 'Benchmark annual %'),
+              h(UI.Input, { type: 'number', step: 'any', value: bench[0], className: 'w-20 py-1 text-sm', onChange: function (e) { bench[1](e.target.value); } }))),
+          h(window.Charts.LineMulti, {
+            labels: eq.map(function (p, i) { return i === 0 ? 'Start' : Fmt.dateShort(p.label); }),
+            series: [
+              { label: 'Your equity', data: eq.map(function (p) { return p.value; }), color: '#7c5cff', fill: true },
+              { label: 'Benchmark (' + (isFinite(parseFloat(bench[0])) ? bench[0] : 0) + '%/yr)', data: bm.map(function (p) { return p.value; }), color: '#94a3b8', dashed: true }
+            ], height: 280 }),
+          h('div', { className: 'text-sm mt-2 font-semibold' },
+            diff >= 0 ? h('span', { className: 'text-profit' }, '↑ Beating benchmark by ' + Fmt.money(diff))
+                      : h('span', { className: 'text-loss' }, '↓ Trailing benchmark by ' + Fmt.money(Math.abs(diff)))));
+      })());
   }
   function mini(label, value, color) {
     return h(UI.Card, { className: 'p-3.5' },
       h('div', { className: 'text-[11px] uppercase tracking-wide text-slate-400 font-semibold' }, label),
       h('div', { className: window.cx('text-xl font-extrabold mt-0.5', color) }, value));
+  }
+  // compact metric tile (for use INSIDE a card) with optional info tooltip
+  function mini2(label, value, color, hint) {
+    return h('div', { className: 'rounded-xl border border-slate-200 dark:border-ink-700 bg-slate-50 dark:bg-ink-900 p-3' },
+      h('div', { className: 'flex items-center gap-1 text-[10px] uppercase tracking-wide text-slate-400 font-semibold' },
+        label, hint ? h('span', { className: 'cursor-help text-slate-400', title: hint }, 'ⓘ') : null),
+      h('div', { className: window.cx('text-lg font-extrabold mt-0.5 tabular-nums', color || '') }, value));
   }
 
 
@@ -139,6 +171,8 @@
     var month = C.groupSum(trades, function (t) { return t.date.slice(0, 7); }).sort(function (a, b) { return a.key < b.key ? -1 : 1; });
     var daily = C.dailyPnl(trades);
     var dayKeys = Object.keys(daily).sort();
+    var hb = C.holdBuckets(trades);
+    var hbHas = hb.some(function (b) { return b.count > 0 && b.key !== 'Unknown'; });
     return h('div', { className: 'space-y-4' },
       grid2([
         h(ChartCard, { key: 'd1', title: 'Net P&L by Day of Week', sub: 'Which days carry your week?' },
@@ -156,7 +190,11 @@
         h(ChartCard, { key: 'd7', title: 'Net Daily P&L', sub: 'Every trading day as a bar.' },
           h(window.Charts.Bars, { labels: dayKeys.map(function (k) { return Fmt.dateShort(k); }), data: dayKeys.map(function (k) { return daily[k].pnl; }), height: 260 })),
         h(ChartCard, { key: 'd8', title: 'Trades per Hour' },
-          h(window.Charts.Bars, { labels: hour.map(function (x) { return Fmt.hourLabel(x.key); }), data: hour.map(function (x) { return x.count; }), fmt: 'plain', color: '#9b7bff', height: 240 }))
+          h(window.Charts.Bars, { labels: hour.map(function (x) { return Fmt.hourLabel(x.key); }), data: hour.map(function (x) { return x.count; }), fmt: 'plain', color: '#9b7bff', height: 240 })),
+        h(ChartCard, { key: 'd9', title: 'Net P&L by Holding Time', sub: 'Scalps vs swings — where do you actually make money?', empty: hbHas ? null : 'Add close date/time to trades to unlock holding-time analysis.' },
+          hbHas ? h(window.Charts.Bars, { labels: hb.map(function (x) { return x.key; }), data: hb.map(function (x) { return x.pnl; }), height: 240 }) : null),
+        h(ChartCard, { key: 'd10', title: 'Win Rate by Holding Time', empty: hbHas ? null : 'Needs trade close times.' },
+          hbHas ? h(window.Charts.Bars, { labels: hb.map(function (x) { return x.key; }), data: hb.map(function (x) { return Math.round(x.winRate); }), fmt: 'pct', color: 'brand', height: 240 }) : null)
       ]));
   }
 
@@ -308,6 +346,12 @@
     var hasR = rdist.some(function (b) { return b.count > 0; });
     var withRisk = trades.filter(function (t) { return Number(t.riskAmount) > 0; });
     var recovery = C.recoveryFactor ? C.recoveryFactor(trades, sb) : null;
+    var adv = C.advancedRisk(trades, sb);
+    var exc = C.excursionStats(trades);
+    var ddSeries = C.drawdownSeries(trades, sb);
+    var rrVals = trades.map(C.plannedRR).filter(function (x) { return x != null; });
+    var avgPlannedRR = rrVals.length ? rrVals.reduce(function (a, b) { return a + b; }, 0) / rrVals.length : null;
+    function fmtMetric(v, suffix) { return v == null ? '—' : (v === Infinity ? '∞' : Fmt.num(v, 2) + (suffix || '')); }
     return h('div', { className: 'space-y-4' },
       /* key risk metrics strip */
       h('div', { className: 'grid grid-cols-2 sm:grid-cols-4 gap-3' },
@@ -315,6 +359,46 @@
         mini('Avg loss', '-' + Fmt.money(s.avgLoss), 'text-loss'),
         mini('Max drawdown', '-' + Fmt.money(dd.amount) + ' (' + Fmt.pct(dd.pct) + ')', 'text-loss'),
         mini('Recovery factor', recovery != null ? (recovery === Infinity ? '∞' : Fmt.num(recovery, 2)) : '—', recovery != null && recovery > 0 ? 'text-profit' : '')),
+
+      /* advanced risk-adjusted metrics */
+      h(UI.Card, { className: 'p-4' },
+        h('p', { className: 'text-[11px] uppercase tracking-wide text-slate-400 font-semibold mb-3' }, 'Advanced risk-adjusted metrics'),
+        h('div', { className: 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3' },
+          mini2('Sharpe (per-trade)', fmtMetric(adv.sharpe), adv.sharpe != null && adv.sharpe > 0 ? 'text-profit' : 'text-loss', 'Mean P&L ÷ std dev of P&L. Higher = smoother returns.'),
+          mini2('Sortino', fmtMetric(adv.sortino), adv.sortino != null && adv.sortino > 0 ? 'text-profit' : 'text-loss', 'Like Sharpe but only penalizes downside volatility.'),
+          mini2('SQN', fmtMetric(adv.sqn), adv.sqn != null && adv.sqn >= 2 ? 'text-profit' : adv.sqn != null && adv.sqn >= 1.6 ? '' : 'text-loss', 'Van Tharp System Quality Number from R-multiples. >2.5 is excellent.'),
+          mini2('Kelly %', adv.kelly != null ? Fmt.num(adv.kelly, 1) + '%' : '—', adv.kelly != null && adv.kelly > 0 ? 'text-profit' : 'text-loss', 'Theoretical optimal fraction of capital per trade. Most use ¼ of this.'),
+          mini2('Std dev / trade', adv.stdev != null ? Fmt.money(adv.stdev) : '—', '', 'Standard deviation of per-trade P&L.'),
+          mini2('Risk of ruin', adv.riskOfRuin != null ? Fmt.pct(adv.riskOfRuin) : '—', adv.riskOfRuin != null && adv.riskOfRuin < 5 ? 'text-profit' : adv.riskOfRuin != null && adv.riskOfRuin < 20 ? 'text-warn' : 'text-loss', 'Simulated probability of blowing the account by resampling your historical trades.')),
+        adv.sampleR < 2 ? h('p', { className: 'text-[11px] text-slate-400 mt-2' }, 'Tip: add a risk amount or stop to your trades so SQN and expectancy can use R-multiples.') : null),
+
+      /* underwater drawdown curve */
+      h(UI.Card, { className: 'p-4' },
+        h('p', { className: 'text-[11px] uppercase tracking-wide text-slate-400 font-semibold mb-2' }, 'Underwater curve (drawdown over time)'),
+        h(window.Charts.LineMulti, {
+          labels: ddSeries.map(function (p, i) { return i === 0 ? 'Start' : Fmt.dateShort(p.label); }),
+          series: [{ label: 'Drawdown', data: ddSeries.map(function (p) { return p.value; }), color: '#f6465d', fill: true }],
+          height: 220 })),
+
+      /* MFE / MAE exit efficiency */
+      (exc.count ? h(UI.Card, { className: 'p-4' },
+        h('p', { className: 'text-[11px] uppercase tracking-wide text-slate-400 font-semibold mb-3' }, 'Exit efficiency & excursion (MFE / MAE)'),
+        h('div', { className: 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3' },
+          mini2('Avg exit efficiency', exc.avgEfficiency != null ? Fmt.pct(exc.avgEfficiency) : '—', exc.avgEfficiency != null && exc.avgEfficiency >= 70 ? 'text-profit' : exc.avgEfficiency != null && exc.avgEfficiency >= 40 ? '' : 'text-loss', '% of the maximum favorable move you captured at exit.'),
+          mini2('Avg MFE', exc.avgMfeR != null ? exc.avgMfeR + 'R' : '—', 'text-profit', 'Average maximum favorable excursion in R.'),
+          mini2('Avg MAE', exc.avgMaeR != null ? '-' + exc.avgMaeR + 'R' : '—', 'text-loss', 'Average heat taken (max adverse excursion) in R.'),
+          mini2('MAE on winners', exc.avgMaeWin != null ? '-' + exc.avgMaeWin + 'R' : '—', '', 'How much heat your winners took before working out.'),
+          mini2('MAE on losers', exc.avgMaeLoss != null ? '-' + exc.avgMaeLoss + 'R' : '—', 'text-loss', 'Adverse excursion on losing trades.')),
+        h('p', { className: 'text-[11px] text-slate-400 mt-2' }, 'Low exit efficiency = you are leaving profit on the table. High MAE on winners = stops may be too tight.')) : null),
+
+      /* planned vs realized R */
+      (avgPlannedRR != null ? h(UI.Card, { className: 'p-4' },
+        h('p', { className: 'text-[11px] uppercase tracking-wide text-slate-400 font-semibold mb-3' }, 'Planned vs. realized'),
+        h('div', { className: 'grid grid-cols-2 sm:grid-cols-3 gap-3' },
+          mini2('Avg planned R:R', Fmt.num(avgPlannedRR, 2) + ' : 1', avgPlannedRR >= 2 ? 'text-profit' : '', 'Average reward:risk you planned from stop & target.'),
+          mini2('Avg realized R', s.avgR != null ? Fmt.num(s.avgR, 2) + 'R' : '—', s.avgR != null ? (s.avgR >= 0 ? 'text-profit' : 'text-loss') : '', 'Average actual R-multiple achieved.'),
+          mini2('Plan adherence', (s.avgR != null && avgPlannedRR > 0) ? Fmt.pct(Math.max(0, s.avgR / avgPlannedRR * 100)) : '—', '', 'Realized R as a share of planned R:R.'))) : null),
+
       grid2([
         h(ChartCard, { key: 'r1', title: 'R-Multiple Distribution', sub: 'Shape of your returns in R.', empty: hasR ? null : 'Add a risk amount to trades to see R-multiple distribution.' },
           hasR ? h(window.Charts.Bars, { labels: rdist.map(function (b) { return b.key; }), data: rdist.map(function (b) { return b.count; }), fmt: 'plain', color: 'brand', height: 240 }) : null),
