@@ -4,7 +4,7 @@
    - Assets (local + CDN): cache-first, runtime-cached on first load.
    Bump CACHE when shipping a new version to evict old assets.
    ============================================================ */
-var CACHE = 'zea-v4';
+var CACHE = 'zea-v5';
 var CORE = ['./', './index.html', './assets/css/app.css', './manifest.webmanifest', './assets/icon.svg'];
 
 self.addEventListener('install', function (e) {

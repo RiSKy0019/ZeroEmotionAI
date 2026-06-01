@@ -39,7 +39,10 @@
   function getState() { return state; }
 
   // produce a new top-level state object so React detects the change
-  function commit(next) { state = next; persist(); notify(); }
+  function commit(next) {
+    if (next && next.meta) next.meta = Object.assign({}, next.meta, { updatedAt: Date.now() });
+    state = next; persist(); notify();
+  }
   function withArr(key, arr) { var n = Object.assign({}, state); n[key] = arr; return n; }
 
   /* ---------- CRUD ---------- */
