@@ -28,6 +28,8 @@
     propfirmimport: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="16" height="14" rx="2"/><path d="M10 7v6M7 11l3 2 3-2M6 7h8"/></svg>',
     calculator: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="12" height="16" rx="2"/><path d="M7 5h6M7 9h.01M10 9h.01M13 9h.01M7 12h.01M10 12h.01M13 12h.01M7 15h3"/></svg>',
     goal: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7"/><circle cx="10" cy="10" r="3.2"/><circle cx="10" cy="10" r="0.6" fill="currentColor" stroke="none"/></svg>',
+    eye: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 10S4.5 4 10 4s8.5 6 8.5 6-3 6-8.5 6S1.5 10 1.5 10z"/><circle cx="10" cy="10" r="2.5"/></svg>',
+    clipboard: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="12" height="15" rx="2"/><path d="M7 3a1 1 0 011-1h4a1 1 0 011 1v1H7V3z"/><path d="M7 9l1.5 1.5L11 8M7 13h5"/></svg>',
   };
   function Icon(props) {
     return h('span', { className: window.cx('inline-flex items-center justify-center shrink-0', props.className), style: { width: props.size || 20, height: props.size || 20 }, dangerouslySetInnerHTML: { __html: ICONS[props.name] || '' } });
@@ -45,10 +47,12 @@
     ['journal',   'journal',   'Journal'],
     ['propfirm',       'reports',   'Prop Firm Tracker'],
     ['propfirmimport', 'import',    'Prop Firm Import'],
+    ['watchlist',      'eye',       'Watchlist & Markets'],
+    ['plan',           'clipboard', 'Daily Plan'],
     ['calculator',     'calculator','Position Calculator'],
     ['goals',          'goal',      'Goals & Targets']
   ];
-  var TITLES = { dashboard: 'Dashboard', trades: 'Trades', reports: 'Reports & Analytics', insights: 'AI Insights', chat: 'AI Chat', weekly: 'Weekly Summary', notebook: 'Notebook', playbooks: 'Playbooks', journal: 'Journal & Review', propfirm: 'Prop Firm Tracker', propfirmimport: 'Prop Firm Import Hub', calculator: 'Position-Size & Risk Calculator', goals: 'Goals & Targets' };
+  var TITLES = { dashboard: 'Dashboard', trades: 'Trades', reports: 'Reports & Analytics', insights: 'AI Insights', chat: 'AI Chat', weekly: 'Weekly Summary', notebook: 'Notebook', playbooks: 'Playbooks', journal: 'Journal & Review', propfirm: 'Prop Firm Tracker', propfirmimport: 'Prop Firm Import Hub', watchlist: 'Watchlist & Markets', plan: 'Daily Plan & Checklist', calculator: 'Position-Size & Risk Calculator', goals: 'Goals & Targets' };
 
 
   function readHash() { var r = (location.hash || '').replace('#', ''); return TITLES[r] ? r : 'dashboard'; }

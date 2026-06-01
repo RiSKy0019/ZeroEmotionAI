@@ -25,10 +25,10 @@
   function empty() {
     return { meta: { v: 1, createdAt: new Date().toISOString() },
       accounts: [{ id: uid('acc'), name: 'Main Account', broker: 'Manual', startingBalance: 25000 }],
-      trades: [], playbooks: [], journal: [], notes: [], settings: {} };
+      trades: [], playbooks: [], journal: [], notes: [], watchlist: [], plans: [], settings: {} };
   }
   function ensure(s) {
-    ['accounts', 'trades', 'playbooks', 'journal', 'notes'].forEach(function (k) { if (!Array.isArray(s[k])) s[k] = []; });
+    ['accounts', 'trades', 'playbooks', 'journal', 'notes', 'watchlist', 'plans'].forEach(function (k) { if (!Array.isArray(s[k])) s[k] = []; });
     if (!s.meta) s.meta = { v: 1, createdAt: new Date().toISOString() };
     if (!s.settings || typeof s.settings !== 'object') s.settings = {};
     return s;
@@ -481,6 +481,31 @@
       pctOfGross: gross !== 0 ? r2(total / Math.abs(gross) * 100) : null, perTrade: trades.length ? r2(total / trades.length) : 0 };
   }
 
+  // Realized gains grouped by tax year, split short- vs long-term (>365 days held)
+  function taxReport(trades) {
+    var byYear = {};
+    trades.forEach(function (t) {
+      if (t.isOpen) return;
+      var p = pnlOf(t); if (!isFinite(p)) return;
+      var closeDate = t.closeDate || t.date;
+      var year = String(closeDate).slice(0, 4); if (!/^\d{4}$/.test(year)) return;
+      var mins = holdMinutes(t);
+      var term = (mins != null && mins / 1440 > 365) ? 'long' : 'short';
+      if (!byYear[year]) byYear[year] = { year: year, trades: 0, proceeds: 0, gain: 0, fees: 0, shortGain: 0, longGain: 0, wins: 0, losses: 0 };
+      var y = byYear[year];
+      y.trades++; y.gain += p; y.fees += (t.fees || 0);
+      var proceeds = (Number(t.exit) || 0) * (Number(t.quantity) || 0) * mult(t);
+      if (isFinite(proceeds)) y.proceeds += proceeds;
+      if (term === 'long') y.longGain += p; else y.shortGain += p;
+      if (p > 0) y.wins++; else if (p < 0) y.losses++;
+    });
+    return Object.keys(byYear).sort().map(function (k) {
+      var y = byYear[k];
+      ['proceeds', 'gain', 'fees', 'shortGain', 'longGain'].forEach(function (f) { y[f] = r2(y[f]); });
+      return y;
+    });
+  }
+
   window.Store = {
     uid: uid, subscribe: subscribe, getState: getState,
     add: add, update: update, remove: remove, removeAccount: removeAccount, reset: reset, clearAll: clearAll, replaceAll: replaceAll,
@@ -495,7 +520,7 @@
       plannedRR: plannedRR, mfeValue: mfeValue, maeValue: maeValue, mfeR: mfeR, maeR: maeR,
       exitEfficiency: exitEfficiency, excursionStats: excursionStats, advancedRisk: advancedRisk,
       riskOfRuin: riskOfRuin, holdBuckets: holdBuckets, drawdownSeries: drawdownSeries,
-      benchmarkCurve: benchmarkCurve, feeBreakdown: feeBreakdown, feeStats: feeStats }
+      benchmarkCurve: benchmarkCurve, feeBreakdown: feeBreakdown, feeStats: feeStats, taxReport: taxReport }
   };
 
   window.useStore = function () {

@@ -38,7 +38,7 @@
     var tab = useState('overview'); var t = tab[0];
     var bench = useState('10');
     if (!trades.length) return h(UI.Empty, { icon: '📈', title: 'Nothing to report yet', sub: 'Add some trades to unlock the analytics.' });
-    var TABS = [['overview','📊 Overview'],['time','🕒 Time'],['instruments','💹 Instruments'],['strategy','📘 Strategy'],['behavior','🧠 Behavior'],['risk','🛡️ Risk']];
+    var TABS = [['overview','📊 Overview'],['time','🕒 Time'],['instruments','💹 Instruments'],['strategy','📘 Strategy'],['behavior','🧠 Behavior'],['risk','🛡️ Risk'],['taxes','🧾 Taxes']];
     return h('div', { className: 'space-y-4 animate-fade-in' },
       h(UI.SectionHead, { title: 'Reports & Analytics', sub: 'Find your edges and your leaks across ' + trades.length + ' trades.',
         right: [h(UI.Button, { key: 'print', variant: 'ghost', size: 'sm', onClick: function() { window.print(); } }, '\ud83d\udda8 Print / PDF')] }),
@@ -53,7 +53,8 @@
       t === 'instruments'  ? InstrumentsTab(trades) :
       t === 'strategy'     ? StrategyTab(trades) :
       t === 'behavior'     ? BehaviorTab(trades) :
-                             RiskTab(trades, state, ctx));
+      t === 'risk'         ? RiskTab(trades, state, ctx) :
+                             TaxTab(trades));
   }
 
 
@@ -421,6 +422,50 @@
                    -C.stats(trades.filter(function (t) { return t.side === 'short'; })).avgLoss],
             height: 240 }))
       ]));
+  }
+
+  /* ================================================================
+     TAX TAB — realized gains by year, short vs long term
+     ================================================================ */
+  function TaxTab(trades) {
+    var rep = C.taxReport(trades);
+    if (!rep.length) return h(UI.Empty, { icon: '🧾', title: 'No realized trades yet', sub: 'Closed trades will appear here, grouped by tax year.' });
+    var totGain = rep.reduce(function (a, b) { return a + b.gain; }, 0);
+    var totFees = rep.reduce(function (a, b) { return a + b.fees; }, 0);
+    var totShort = rep.reduce(function (a, b) { return a + b.shortGain; }, 0);
+    var totLong = rep.reduce(function (a, b) { return a + b.longGain; }, 0);
+    function exportCsv() {
+      var rows = [['Year', 'Trades', 'Proceeds', 'Short-term gain', 'Long-term gain', 'Net gain', 'Fees']];
+      rep.forEach(function (y) { rows.push([y.year, y.trades, y.proceeds, y.shortGain, y.longGain, y.gain, y.fees]); });
+      Fmt.download('zeroemotionai-tax-report.csv', rows.map(function (r) { return r.join(','); }).join('\n'), 'text/csv');
+    }
+    return h('div', { className: 'space-y-4' },
+      h('div', { className: 'rounded-xl border border-warn/40 bg-warn/5 px-4 py-3 text-xs text-slate-600 dark:text-slate-300' },
+        h('strong', null, 'Estimates only — not tax advice. '),
+        'Realized P&L is grouped by the year of the close date. Long-term = held more than 365 days (needs a close date on the trade). Consult a professional and your broker\u2019s official 1099 / statements before filing.'),
+      h('div', { className: 'grid grid-cols-2 sm:grid-cols-4 gap-3' },
+        mini('Net realized gain', Fmt.money(totGain, { plus: true }), Fmt.signColor(totGain)),
+        mini('Short-term', Fmt.money(totShort, { plus: true }), Fmt.signColor(totShort)),
+        mini('Long-term', Fmt.money(totLong, { plus: true }), Fmt.signColor(totLong)),
+        mini('Total fees', Fmt.money(totFees), 'text-loss')),
+      h(UI.Card, { className: 'p-4' },
+        h('div', { className: 'flex items-center justify-between mb-2' },
+          h('p', { className: 'text-[11px] uppercase tracking-wide text-slate-400 font-semibold' }, 'Realized gains by year'),
+          h(UI.Button, { variant: 'ghost', size: 'sm', onClick: exportCsv }, '⭳ Export CSV')),
+        h('div', { className: 'overflow-x-auto' }, h('table', { className: 'w-full text-sm min-w-[640px]' },
+          h('thead', null, h('tr', { className: 'text-left text-[11px] uppercase tracking-wide text-slate-400' },
+            ['Year', 'Trades', 'Proceeds', 'Short-term', 'Long-term', 'Net gain', 'Fees'].map(function (c) { return h('th', { key: c, className: 'py-2 pr-4 font-semibold' }, c); }))),
+          h('tbody', null, rep.map(function (y) {
+            return h('tr', { key: y.year, className: 'border-t border-slate-100 dark:border-ink-700' },
+              h('td', { className: 'py-2 pr-4 font-semibold' }, y.year),
+              h('td', { className: 'pr-4' }, y.trades),
+              h('td', { className: 'pr-4 tabular-nums' }, Fmt.money(y.proceeds)),
+              h('td', { className: 'pr-4 tabular-nums ' + Fmt.signColor(y.shortGain) }, Fmt.money(y.shortGain, { plus: true })),
+              h('td', { className: 'pr-4 tabular-nums ' + Fmt.signColor(y.longGain) }, Fmt.money(y.longGain, { plus: true })),
+              h('td', { className: 'pr-4 tabular-nums font-semibold ' + Fmt.signColor(y.gain) }, Fmt.money(y.gain, { plus: true })),
+              h('td', { className: 'pr-4 tabular-nums text-loss' }, Fmt.money(y.fees)));
+          })))))
+    );
   }
 
   window.Views = window.Views || {};
