@@ -255,5 +255,10 @@
   }
 
   window.Views = window.Views || {};
+  // Router resolves views via cap(route) which only uppercases the first letter,
+  // so route 'propfirmimport' -> 'Propfirmimport'. Register under that exact key
+  // (and keep the camelCase alias) so the section renders instead of falling back
+  // to the Dashboard.
+  window.Views.Propfirmimport = PropfirmImport;
   window.Views.PropfirmImport = PropfirmImport;
 })();
