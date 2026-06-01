@@ -1,0 +1,14 @@
+{
+  "name": "ZeroEmotionAI — Trading Journal & Analytics",
+  "short_name": "ZeroEmotionAI",
+  "description": "Plan, journal, review and improve your trading. Analytics, reports, playbooks, watchlist and CSV import.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a0a0a",
+  "theme_color": "#00E096",
+  "icons": [
+    { "src": "assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
