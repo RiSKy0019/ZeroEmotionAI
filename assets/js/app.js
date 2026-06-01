@@ -77,7 +77,7 @@
     var viewProps = { state: state, ctx: ctx, go: go,
       onAddTrade: function () { openTradeForm(); }, onEditTrade: openTradeForm,
       openTradeForm: openTradeForm, openCsv: openCsv, openTradingView: openTradingView };
-    var View = window.Views[cap(route)] || window.Views.Dashboard;
+    var View = resolveView(route);
 
     return h('div', { className: 'flex min-h-screen bg-[#f7f7f7] dark:bg-ink-950' },
       sidebarS[0] ? h('div', { className: 'fixed inset-0 bg-black/50 z-40 lg:hidden', onClick: function () { sidebarS[1](false); } }) : null,
@@ -102,6 +102,22 @@
     );
   }
   function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+  /* Resolve a route ('propfirmimport') to a registered view, tolerant of
+     casing. cap() only uppercases the first letter, so camelCase view names
+     like 'PropfirmImport' would never match 'Propfirmimport'. Match
+     case-insensitively against the registered keys, then fall back to
+     Dashboard. This makes routing immune to view-registration casing. */
+  function resolveView(route) {
+    var V = window.Views || {};
+    if (V[cap(route)]) return V[cap(route)];
+    var want = String(route).toLowerCase();
+    var keys = Object.keys(V);
+    for (var i = 0; i < keys.length; i++) {
+      if (keys[i].toLowerCase() === want) return V[keys[i]];
+    }
+    return V.Dashboard;
+  }
 
 
   /* ---- Light Sidebar ---- */
